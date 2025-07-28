@@ -6,7 +6,14 @@ table {
   font-family: Arial, sans-serif;
 }
 
-th, td {
+th {
+  border: 1px solid #ccc;
+  padding: 8px 12px;
+  text-align: center;
+  font-weight: bold;
+}
+
+td {
   border: 1px solid #ccc;
   padding: 8px 12px;
   text-align: left;
