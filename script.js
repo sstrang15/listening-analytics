@@ -1,10 +1,10 @@
 // script.js
-
+const data_path = 'tidal_favorites.csv'
 // makes asynchronous call to csv file
-async function fetchCSV() {
+async function fetchCSV(path) {
     try {
         console.log("fetch_csv started");
-        const response = await fetch('tidal_favorites.csv');
+        const response = await fetch(path);
         if (!response.ok) {
             console.error('Network response was not ok', response.status);
             return {};  // Return empty object instead of undefined
@@ -33,8 +33,6 @@ async function renderFilters(array, column_no, data, filterSelections={}) {
     const fruits = ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry']; 
     const container = document.getElementById('filtersContainer')
     container.innerHTML = "";
-
-    const filterSelections = {};
     // Skip if element not found 
     if (!container) {
         console.warn("No container element found for filters");
@@ -54,7 +52,7 @@ async function renderFilters(array, column_no, data, filterSelections={}) {
             4: "Popularity",
             5: "Playlist"
         };
-        labelText = labels[col]
+        const labelText = labels[col]
 
         // Initialize filterSelections to contain all values by default
         filterSelections[col] = [...item];
@@ -74,10 +72,8 @@ async function renderFilters(array, column_no, data, filterSelections={}) {
             select.appendChild(option);
         });
 
-        filterSelections[i] =  new Set();
-
         // Event listener: keep only the selected values
-        select.addEventListener('change', (e) => {
+        select.addEventListener('change', (event) => {
             const filterValue = event.target.value;
             const filterLabel = labelText
             const arr = filterSelections[col]
@@ -108,19 +104,12 @@ async function renderFilters(array, column_no, data, filterSelections={}) {
 async function parsebyColumn(column_no, rows) {
     let data = []
     for (const column of column_no) {
-        row_buffer = []
-        for (row of rows) {
-            let i = 0
-            row.split(',').forEach(cell => {
-                if (i === column) {
-                    row_buffer.push(cell)
-                }
-                i += 1    
-            })
-        }
-        data.push(row_buffer)
+        const columnData = rows.map(row => {
+            const cells = row.split(',')
+            return cells[column]
+        })
+        data.push(columnData)
     }
-    console.log(data.length)
     return data
 }
 
@@ -147,16 +136,13 @@ function getDistinct(array) {
     return filterArray
 }
 
-async function filterData() {
-  return {}
-} 
-
 async function parseTable(data) {
     console.log("Parsing")
     // get the headers to the table
     let rows = data.trim().split('\n');
     const header = rows[0].split(',');
     rows = rows.slice(1)
+    console.log(rows)
     return { header, rows }
 }
 
@@ -202,17 +188,45 @@ async function makeTable(headers, rows) {
 
 }
 
-// async function filterData(filter_selection, filter) {
+async function filterData(rows, filter = null) {
+    // If filters is null or empty, return all rows
 
+    if (!filter || Object.keys(filter).length === 0) {
+        return rows
+    }
 
-//     return {headers, rows}
-// }
+    const filteredRows = []
+    rows.forEach(row => {
+        let found = false
+        let keepRow = true // assuming we will keep the row unless a filter fails
+        const cells = row.split(',') // turns string into an array 
+        for (let i = 0; i < cells.length; i++) {
+            const allowedValues = filter[i] // get allowed values for this column
+            if (allowedValues) {
+                const cellValue = cells[i]
+                const isAllowed = allowedValues.includes(cellValue);  // true if it matches filter
+                if (!isAllowed) {           // if it does not match 
+                    keepRow = false         // reject the row
+                    break;                  // stop checking
+                }
+            }
+        }
+        if (keepRow) {
+            filteredRows.push(row) //  row passes filter check
+        }
+    })
+    
+// for every row, check in the column whether the data in that row is equal to any of the values in filter selection
+    // where the key is the column index have a counter for every row
+    // when the value is identified push the row, else dont push the row and move to the next
+    return filteredRows
+}
 
 let cachedData = null;
-async function fetchAndCacheCSV() {
+async function fetchAndCacheCSV(data) {
     if (!cachedData) {
         console.log("Fetching CSV...");
-        cachedData = await fetchCSV();
+        cachedData = await fetchCSV(data);
         console.log("CSV fetched");
     } else {
         console.log("Using cached CSV");
@@ -222,8 +236,9 @@ async function fetchAndCacheCSV() {
 
 async function dataTransformation(data, filters) {
     console.log("Transforming data...");
-
-    const { header, rows } = await parseTable(data);
+    let { header, rows } = await parseTable(data);
+    let filteredRows = await filterData(rows, filters);
+    await makeTable(header, filteredRows);  
     console.log("Data parsed");
 
     const column_nos = [1,2,5];
@@ -231,20 +246,23 @@ async function dataTransformation(data, filters) {
     const unique = await getDistinct(columns);
     console.log("Unique values:", unique);
 
-    renderFilters(unique, column_nos);
-    await makeTable(header, rows);
+    renderFilters(unique, column_nos, data);
     console.log("Table made");
 }
 
 // Main function that kicks off rendering
-async function main() {
+async function main(data) {
     try {
-        const data = await fetchAndCacheCSV(); // Fetch once
         await dataTransformation(data);        // Transform and render
     } 
     catch(err) {
         console.log("Error in main:", err)
     }
-
 }
-main();
+// does all fetching fo data to be cached
+async function bootstrap() {
+    const data = await fetchAndCacheCSV(data_path);
+    await main(data);
+}
+
+bootstrap();
