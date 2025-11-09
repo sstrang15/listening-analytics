@@ -1,6 +1,7 @@
 // script.js
 const data_path = 'tidal_favorites.csv'
 // makes asynchronous call to csv file
+
 async function fetchCSV(path) {
     try {
         console.log("fetch_csv started");
@@ -23,6 +24,87 @@ async function fetchCSV(path) {
         return {};
     }
 }
+
+// =======================================================
+// Worker Function
+// =======================================================
+// Purpose: This function handles all data retrieval / computation.
+// It is completely decoupled from the DOM.
+// Responsibilities:
+//   1. Build the fetch path or request using input from the handler
+//   2. Perform the fetch / async operation
+//   3. Return the raw data (JSON, array, string, etc.) back to the handler
+// =======================================================
+async function fetchMusicData(str) {
+    // Build the URL using the query string
+    const url = str;
+
+    // Fetch data from the server
+    const response = await fetch(url);
+
+    // Parse and return the JSON data
+    console.log(response.body)
+}
+
+// =======================================================
+// Handler Function
+// =======================================================
+// Purpose: ORCHESTRATOR for the "Pick Your Music" section
+// Responsibilities:
+//   1. Collect inputs from the DOM
+//   2. Compile inputs into a query string or object for the worker
+//   3. Call the worker to fetch/process data
+//   4. Update the UI or cache as needed
+//   5. Handle errors gracefully
+// Note: Does NOT fetch data itself; delegates to worker
+// =======================================================
+async function handleMusicQuery() {
+    // 1. Get the section that owns this feature
+    const section = document.querySelector("#querysearch");
+
+    // 2. Read its inputs directly
+    const artistInput = section.querySelector("#artist");
+    const albumInput  = section.querySelector("#album");
+    // const trackInput  = section.querySelector("#track"); // optional if you add it later
+
+    const artist = artistInput?.value.trim() || "";
+    const album  = albumInput?.value.trim() || "";
+    // const track  = trackInput?.value.trim() || "";
+
+    // 2️Compile query string using helper
+    const queryString = compileQueryFromInputs(artist, album);
+    console.log(queryString)
+    // 3️Show loading state
+    let resultsDiv = section.querySelector(".results");
+    if (!resultsDiv) {
+        resultsDiv = document.createElement("pre");  // using <pre> for easy JSON display
+        resultsDiv.className = "results";
+        section.appendChild(resultsDiv);
+    }
+    resultsDiv.textContent = "Loading...";
+
+    try {
+        // 4️Call worker (async)
+        const data = await fetchMusicData(queryString);
+
+        // 5 Handle results
+        // renderResults(data);
+    } catch (err) {
+        resultsDiv.textContent = "Error fetching data.";
+        console.error(err);
+    }
+}
+
+function compileQueryFromInputs(artist, album) {
+    const query = [];
+    if (artist) query.push(`artist=${encodeURIComponent(artist)}`);
+    if (album) query.push(`album=${encodeURIComponent(album)}`);
+    // if (track) query.push(`track=${encodeURIComponent(track)}`);
+    let endpoint = '/gettracks'
+    const url = 'http://127.0.0.1:8000'
+    return url + endpoint + "?" + query.join("&");
+}
+
 
 // Assume cachedData is defined globally and holds the CSV data
 let filterSelections = {};
@@ -222,6 +304,18 @@ async function filterData(rows, filter = null) {
     return filteredRows
 }
 
+const listeners = [
+    { selector: "#fetchButton", event: "click", handler: handleMusicQuery },
+    // { selector: "#runQueryBtn", event: "click", handler: handleMusicQuery }
+];
+
+function attachListeners(list) {
+    list.forEach(({ selector, event, handler }) => {
+        const el = document.querySelector(selector);
+        if (el) el.addEventListener(event, handler);
+    });
+}
+
 let cachedData = null;
 async function fetchAndCacheCSV(data) {
     if (!cachedData) {
@@ -236,6 +330,7 @@ async function fetchAndCacheCSV(data) {
 
 async function dataTransformation(data, filters) {
     console.log("Transforming data...");
+    attachListeners(listeners)
     let { header, rows } = await parseTable(data);
     let filteredRows = await filterData(rows, filters);
     await makeTable(header, filteredRows);  
