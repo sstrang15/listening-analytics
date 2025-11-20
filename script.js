@@ -43,7 +43,14 @@ async function fetchMusicData(str) {
     const response = await fetch(url);
 
     // Parse and return the JSON data
-    console.log(response.body)
+    const data = await response.json()
+    // console.log(JSON.stringify(data,null,2))
+    // show in console the data that we are receiving
+    data.forEach((item, i) => {
+        console.log(`${i + 1}:`, item);
+    });
+
+    // return data
 }
 
 // =======================================================
@@ -67,13 +74,13 @@ async function handleMusicQuery() {
     const albumInput  = section.querySelector("#album");
     // const trackInput  = section.querySelector("#track"); // optional if you add it later
 
-    const artist = artistInput?.value.trim() || "";
-    const album  = albumInput?.value.trim() || "";
+    const artist = artistInput?.value.trim().replace(/ /g, "+") || "";
+    const album  = albumInput?.value.trim().replace(/ /g, "+") || "";
     // const track  = trackInput?.value.trim() || "";
 
     // 2️Compile query string using helper
     const queryString = compileQueryFromInputs(artist, album);
-    console.log(queryString)
+    // console.log(queryString)
     // 3️Show loading state
     let resultsDiv = section.querySelector(".results");
     if (!resultsDiv) {
@@ -81,11 +88,12 @@ async function handleMusicQuery() {
         resultsDiv.className = "results";
         section.appendChild(resultsDiv);
     }
-    resultsDiv.textContent = "Loading...";
+    // resultsDiv.textContent = "Loading...";
 
     try {
         // 4️Call worker (async)
         const data = await fetchMusicData(queryString);
+        resultsDiv.textContent = data
 
         // 5 Handle results
         // renderResults(data);
