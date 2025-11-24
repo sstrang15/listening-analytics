@@ -42,15 +42,18 @@ async function fetchMusicData(str) {
     // Fetch data from the server
     const response = await fetch(url);
 
-    // Parse and return the JSON data
-    const data = await response.json()
-    // console.log(JSON.stringify(data,null,2))
-    // show in console the data that we are receiving
+    // Read response as text (Server sent bytes)
+    const text = await response.text()
+
+    // Parse JSON from the string
+    const data = JSON.parse(text);
+
+    // Optional: log items
     data.forEach((item, i) => {
         console.log(`${i + 1}:`, item);
     });
 
-    // return data
+    return data // return as JS object/array
 }
 
 // =======================================================
@@ -69,50 +72,55 @@ async function handleMusicQuery() {
     // 1. Get the section that owns this feature
     const section = document.querySelector("#querysearch");
 
-    // 2. Read its inputs directly
+    // 2. Prepare the results div
     const artistInput = section.querySelector("#artist");
     const albumInput  = section.querySelector("#album");
-    // const trackInput  = section.querySelector("#track"); // optional if you add it later
 
-    const artist = artistInput?.value.trim().replace(/ /g, "+") || "";
-    const album  = albumInput?.value.trim().replace(/ /g, "+") || "";
-    // const track  = trackInput?.value.trim() || "";
+    // 3. Read Inputs
+    const artist = artistInput?.value || "";
+    const album  = albumInput?.value  || "";
 
-    // 2️Compile query string using helper
+    // 4. Build query string
     const queryString = compileQueryFromInputs(artist, album);
     // console.log(queryString)
-    // 3️Show loading state
+
+    // Show loading state
     let resultsDiv = section.querySelector(".results");
     if (!resultsDiv) {
         resultsDiv = document.createElement("pre");  // using <pre> for easy JSON display
         resultsDiv.className = "results";
         section.appendChild(resultsDiv);
     }
-    // resultsDiv.textContent = "Loading...";
-
+    // 5. Show loading state
+    resultsDiv.textContent = "Loading...";
     try {
-        // 4️Call worker (async)
+        // 6. Fetch music data (bytes → JSON handled inside fetchMusicData)
         const data = await fetchMusicData(queryString);
-        resultsDiv.textContent = data
 
-        // 5 Handle results
-        // renderResults(data);
+        // 7. Optional: show raw JSON in the results div
+        resultsDiv.textContent = JSON.stringify(data, null, 2);
+
+        // 8. Populate table or UI
+        // createResultsTable(data);
     } catch (err) {
         resultsDiv.textContent = "Error fetching data.";
-        console.error(err);
+        console.error("Error in handleMusicQuery:", err);
     }
+}
+
+function createResultsTable(data){
+    return data
 }
 
 function compileQueryFromInputs(artist, album) {
     const query = [];
-    if (artist) query.push(`artist=${encodeURIComponent(artist)}`);
-    if (album) query.push(`album=${encodeURIComponent(album)}`);
+    if (artist) query.push(`artist=${encodeForQueryPlus(artist)}`);
+    if (album)  query.push(`album=${encodeForQueryPlus(album)}`);
     // if (track) query.push(`track=${encodeURIComponent(track)}`);
     let endpoint = '/gettracks'
-    const url = 'http://127.0.0.1:8000'
-    return url + endpoint + "?" + query.join("&");
+    const baseUrl = 'http://127.0.0.1:8000'
+    return `${baseUrl}${endpoint}?${query.join("&")}`;
 }
-
 
 // Assume cachedData is defined globally and holds the CSV data
 let filterSelections = {};
@@ -335,6 +343,12 @@ async function fetchAndCacheCSV(data) {
     }
     return cachedData;
 }
+
+function encodeForQueryPlus(str) {
+    if (!str) return "";
+    return encodeURIComponent(str.trim()).replace(/%20/g, "+");
+}
+
 
 async function dataTransformation(data, filters) {
     console.log("Transforming data...");
