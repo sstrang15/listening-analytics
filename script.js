@@ -41,12 +41,12 @@ async function fetchMusicData(str) {
 
     // Fetch data from the server
     const response = await fetch(url);
+    // console.log(response.status);
+    // console.log(response.ok);
+    // console.log(response.headers.get("content-type"));
 
     // Read response as text (Server sent bytes)
-    const text = await response.text()
-
-    // Parse JSON from the string
-    const data = JSON.parse(text);
+    const data = await response.json()
 
     // Optional: log items
     data.forEach((item, i) => {
@@ -98,18 +98,63 @@ async function handleMusicQuery() {
         const data = await fetchMusicData(queryString);
 
         // 7. Optional: show raw JSON in the results div
-        resultsDiv.textContent = JSON.stringify(data, null, 2);
+        // resultsDiv.textContent = JSON.stringify(data, null, 2);
 
-        // 8. Populate table or UI
-        // createResultsTable(data);
+        // 8. Populate table or UI  
+        createTable(data);
     } catch (err) {
         resultsDiv.textContent = "Error fetching data.";
         console.error("Error in handleMusicQuery:", err);
     }
 }
 
-function createResultsTable(data){
-    return data
+function createTable(data){
+    // Go through each object in the array and create a row and using field determine which number element in row is made
+    // to start assume it always has every column
+
+    const table = document.querySelector("#query-table");
+    const thead = table.querySelector("thead");
+    const tbody = table.querySelector("tbody");
+    const tableHeader = ["Track","Artist","Album"]
+
+    // ✅ Clear old table content
+    thead.innerHTML = "";
+    tbody.innerHTML = "";
+
+    // Build Table
+    const header = createTableHeader(tableHeader);
+    thead.appendChild(header);
+    createTableBody(data, tableHeader, tbody)
+}
+
+function createTableBody(data, headers, tbody){
+
+    data.forEach(arr => {
+        console.log(arr)
+        arr.forEach(object => {
+            // console.log(object)
+            // Loop through headers to control column order
+            let tr = document.createElement("tr")
+            headers.forEach(header => {
+                // Loop through key/value for debugging or extra logic
+                const td = document.createElement("td")
+                td.textContent = object[header] ?? ""; // pick value by header key
+                tr.appendChild(td)
+            });
+            tbody.appendChild(tr)
+        })
+    })
+}
+
+function createTableHeader(header){
+    const tr = document.createElement("tr")
+
+    header.forEach(col => {
+        const th = document.createElement("th");
+        th.textContent = col;
+        tr.appendChild(th);
+    })
+    return tr
 }
 
 function compileQueryFromInputs(artist, album) {
