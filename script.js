@@ -49,9 +49,9 @@ async function fetchMusicData(str) {
     const data = await response.json()
 
     // Optional: log items
-    data.forEach((item, i) => {
-        console.log(`${i + 1}:`, item);
-    });
+    // data.forEach((item, i) => {
+    //     console.log(`${i + 1}:`, item);
+    // });
 
     return data // return as JS object/array
 }
@@ -115,7 +115,7 @@ function createTable(data){
     const table = document.querySelector("#query-table");
     const thead = table.querySelector("thead");
     const tbody = table.querySelector("tbody");
-    const tableHeader = ["Track","Artist","Album"]
+    const tableHeader = ["Artist","Track","Album"]
 
     // ✅ Clear old table content
     thead.innerHTML = "";
@@ -129,22 +129,21 @@ function createTable(data){
 
 function createTableBody(data, headers, tbody){
 
-    data.forEach(arr => {
-        console.log(arr)
-        arr.forEach(object => {
-            // console.log(object)
-            // Loop through headers to control column order
-            let tr = document.createElement("tr")
-            headers.forEach(header => {
-                // Loop through key/value for debugging or extra logic
-                const td = document.createElement("td")
-                td.textContent = object[header] ?? ""; // pick value by header key
-                tr.appendChild(td)
-            });
-            tbody.appendChild(tr)
-        })
+    data.forEach(object => {
+        // console.log(object)
+        // Loop through headers to control column order
+        let tr = document.createElement("tr")
+        headers.forEach(header => {
+            // Loop through key/value for debugging or extra logic
+            const td = document.createElement("td")
+            td.textContent = object[header] ?? ""; // pick value by header key
+            tr.appendChild(td)
+        });
+        tbody.appendChild(tr)
     })
 }
+// for this function it needs to not error out if there isnt any level of nesting in returning object
+
 
 function createTableHeader(header){
     const tr = document.createElement("tr")
@@ -328,7 +327,6 @@ async function makeTable(headers, rows) {
     });
     tbody.appendChild(tr);
   });
-
 }
 
 async function filterData(rows, filter = null) {
@@ -399,7 +397,9 @@ async function dataTransformation(data, filters) {
     console.log("Transforming data...");
     attachListeners(listeners)
     let { header, rows } = await parseTable(data);
+    // console.log(header)
     let filteredRows = await filterData(rows, filters);
+    console.log(filteredRows)
     await makeTable(header, filteredRows);  
     console.log("Data parsed");
 
