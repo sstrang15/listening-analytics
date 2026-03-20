@@ -98,7 +98,7 @@ async function handleMusicQuery() {
         const data = await fetchMusicData(queryString);
 
         // 7. Optional: show raw JSON in the results div
-        // resultsDiv.textContent = JSON.stringify(data, null, 2);
+        resultsDiv.textContent = JSON.stringify(data, null, 2);
 
         // 8. Populate table or UI  
         createTable(data);
@@ -112,10 +112,12 @@ function createTable(data){
     // Go through each object in the array and create a row and using field determine which number element in row is made
     // to start assume it always has every column
 
-    const table = document.querySelector("#query-table");
+    const table = document.querySelector("#data-table");
     const thead = table.querySelector("thead");
     const tbody = table.querySelector("tbody");
-    const tableHeader = ["Artist","Track","Album"]
+    // Here we are going to call function that gets an array of all the fields and that becomes tableHeader
+    const tableHeader = getHeaders(data)
+    // tableHeader = ["Artist","Track","Album"]
 
     // ✅ Clear old table content
     thead.innerHTML = "";
@@ -135,6 +137,7 @@ function createTableBody(data, headers, tbody){
         let tr = document.createElement("tr")
         headers.forEach(header => {
             // Loop through key/value for debugging or extra logic
+            console.log(`The header is ${header} and the valus is ${object[header]}`)
             const td = document.createElement("td")
             td.textContent = object[header] ?? ""; // pick value by header key
             tr.appendChild(td)
@@ -144,11 +147,23 @@ function createTableBody(data, headers, tbody){
 }
 // for this function it needs to not error out if there isnt any level of nesting in returning object
 
+function getHeaders(object) {
+    fieldsList = []
+    object.forEach(obj => {
+        Object.keys(obj).forEach(key => {
+            if (!fieldsList.includes(key)) {
+                fieldsList.push(key)
+            }
+        });
+    });
+    return fieldsList
+}
 
 function createTableHeader(header){
     const tr = document.createElement("tr")
 
     header.forEach(col => {
+        console.log(col)
         const th = document.createElement("th");
         th.textContent = col;
         tr.appendChild(th);
@@ -392,7 +407,6 @@ function encodeForQueryPlus(str) {
     return encodeURIComponent(str.trim()).replace(/%20/g, "+");
 }
 
-
 async function dataTransformation(data, filters) {
     console.log("Transforming data...");
     attachListeners(listeners)
@@ -421,6 +435,7 @@ async function main(data) {
         console.log("Error in main:", err)
     }
 }
+
 // does all fetching fo data to be cached
 async function bootstrap() {
     const data = await fetchAndCacheCSV(data_path);
