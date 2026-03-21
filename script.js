@@ -98,17 +98,20 @@ async function handleMusicQuery() {
         const data = await fetchMusicData(queryString);
 
         // 7. Optional: show raw JSON in the results div
-        resultsDiv.textContent = JSON.stringify(data, null, 2);
+        // resultsDiv.textContent = JSON.stringify(data, null, 2);
 
         // 8. Populate table or UI  
-        createTable(data);
+        generateTable(data);
     } catch (err) {
         resultsDiv.textContent = "Error fetching data.";
         console.error("Error in handleMusicQuery:", err);
     }
 }
 
-function createTable(data){
+// =======================
+// Table Function
+// =======================
+function generateTable(data){
     // Go through each object in the array and create a row and using field determine which number element in row is made
     // to start assume it always has every column
 
@@ -117,6 +120,46 @@ function createTable(data){
     const tbody = table.querySelector("tbody");
     // Here we are going to call function that gets an array of all the fields and that becomes tableHeader
     const tableHeader = getHeaders(data)
+    const filterHeader = {
+        // "id": 62272404,
+        "title": "1981",
+        "name": "Track",
+        "duration": "Length",
+        // "explicit": false,
+        // "allow_streaming": true,
+        // "available": true,
+        // "stream_ready": true,
+        // "stem_ready": false,
+        // "dj_ready": true,
+        // "ad_supported_stream_ready": true,
+        // "track_num": 1,
+        // "volume_num": 1,
+        "popularity": "Popularity",
+        // "type": null,
+        // "artist_roles": null,
+        // "pay_to_stream": false,
+        // "premium_streaming_only": false,
+        // "editable": false,
+        // "upload": false,
+        // "spotlighted": false,
+        "url": "Link",
+        // "listen_url": "https://listen.tidal.com/album/62272403/track/62272404",
+        // "share_url": "https://tidal.com/browse/track/62272404",
+        // "audio_quality": "LOSSLESS",
+        // "access_type": "PUBLIC",
+        // "index": null,
+        // "item_uuid": null,
+        // "isrc": "CAPA30600165",
+        // "description": null,
+        // "version": "Original Mix",
+        // "copyright": "Play Records",
+        "bpm": "BPM",
+        "key": "Key",
+        "key_scale": "Key Quality",
+        // "peak": 1,
+        // "full_name": "1981 (Original Mix)"
+    }
+    const newHeaders = filterHeaders(tableHeader, filterHeader)
     // tableHeader = ["Artist","Track","Album"]
 
     // ✅ Clear old table content
@@ -124,22 +167,24 @@ function createTable(data){
     tbody.innerHTML = "";
 
     // Build Table
-    const header = createTableHeader(tableHeader);
+    console.log(newHeaders)
+    const header = createTableHeader(newHeaders);
     thead.appendChild(header);
-    createTableBody(data, tableHeader, tbody)
+    createTableBody(data, newHeaders, tbody)
 }
 
-function createTableBody(data, headers, tbody){
+function createTableBody(data, newHeaders, tbody){
 
     data.forEach(object => {
         // console.log(object)
         // Loop through headers to control column order
         let tr = document.createElement("tr")
-        headers.forEach(header => {
-            // Loop through key/value for debugging or extra logic
-            console.log(`The header is ${header} and the valus is ${object[header]}`)
+        // Loop through key/value for debugging or extra logic
+        Object.entries(newHeaders).forEach(([key, label]) => {
             const td = document.createElement("td")
-            td.textContent = object[header] ?? ""; // pick value by header key
+            // console.log(`The header is ${header} and the value is ${object[header]}`)
+            // Create a cell of the value corresponding to the correct field of the current column
+            td.textContent = object[key] ?? ""; // pick value by header key
             tr.appendChild(td)
         });
         tbody.appendChild(tr)
@@ -159,13 +204,28 @@ function getHeaders(object) {
     return fieldsList
 }
 
+function filterHeaders(headers, filter) {
+    // so your going to remove items from headers if they arent in filter
+    screenHeader = {}
+    Object.entries(filter).forEach(([field, name]) => {
+        // console.log(`The field is ${field} and the value is ${name}`)
+        headers.forEach(header => {
+            if (field == header) {
+                screenHeader[field] = name
+            } 
+        })
+    })
+    // console.log(screenHeader)
+    return screenHeader
+}
+
 function createTableHeader(header){
     const tr = document.createElement("tr")
-
-    header.forEach(col => {
-        console.log(col)
+    console.log(header)
+    Object.entries(header).forEach(([key, value]) => {
+        // console.log(col)
         const th = document.createElement("th");
-        th.textContent = col;
+        th.textContent = value;
         tr.appendChild(th);
     })
     return tr
