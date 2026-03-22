@@ -82,7 +82,7 @@ async function handleMusicQuery() {
 
     // 4. Build query string
     const queryString = compileQueryFromInputs(artist, album);
-    // console.log(queryString)
+    console.log(queryString)
 
     // Show loading state
     let resultsDiv = section.querySelector(".results");
@@ -98,12 +98,13 @@ async function handleMusicQuery() {
         const data = await fetchMusicData(queryString);
 
         // 7. Optional: show raw JSON in the results div
-        // resultsDiv.textContent = JSON.stringify(data, null, 2);
+        // console.log(JSON.stringify(data, null, 2))
 
         // 8. Populate table or UI  
-        generateTable(data);
+        generateTable(data, route);
     } catch (err) {
         resultsDiv.textContent = "Error fetching data.";
+        // console.log(JSON.stringify(data, null, 2))
         console.error("Error in handleMusicQuery:", err);
     }
 }
@@ -111,7 +112,7 @@ async function handleMusicQuery() {
 // =======================
 // Table Function
 // =======================
-function generateTable(data){
+function generateTable(data, route){
     // Go through each object in the array and create a row and using field determine which number element in row is made
     // to start assume it always has every column
 
@@ -121,8 +122,8 @@ function generateTable(data){
     // Here we are going to call function that gets an array of all the fields and that becomes tableHeader
     const tableHeader = getHeaders(data)
     const filterHeader = {
-        // "id": 62272404,
-        "title": "1981",
+        "id": "ID",
+        "title": "Title",
         "name": "Track",
         "duration": "Length",
         // "explicit": false,
@@ -143,7 +144,7 @@ function generateTable(data){
         // "upload": false,
         // "spotlighted": false,
         "url": "Link",
-        // "listen_url": "https://listen.tidal.com/album/62272403/track/62272404",
+        // "listen_url": "Listen",
         // "share_url": "https://tidal.com/browse/track/62272404",
         // "audio_quality": "LOSSLESS",
         // "access_type": "PUBLIC",
@@ -151,13 +152,13 @@ function generateTable(data){
         // "item_uuid": null,
         // "isrc": "CAPA30600165",
         // "description": null,
-        // "version": "Original Mix",
-        // "copyright": "Play Records",
+        "version": "Version",
+        "copyright": "Copyright",
         "bpm": "BPM",
         "key": "Key",
         "key_scale": "Key Quality",
         // "peak": 1,
-        // "full_name": "1981 (Original Mix)"
+        "full_name": "Full Track Name"
     }
     const newHeaders = filterHeaders(tableHeader, filterHeader)
     // tableHeader = ["Artist","Track","Album"]
@@ -167,7 +168,7 @@ function generateTable(data){
     tbody.innerHTML = "";
 
     // Build Table
-    console.log(newHeaders)
+    // console.log(newHeaders)
     const header = createTableHeader(newHeaders);
     thead.appendChild(header);
     createTableBody(data, newHeaders, tbody)
@@ -221,7 +222,7 @@ function filterHeaders(headers, filter) {
 
 function createTableHeader(header){
     const tr = document.createElement("tr")
-    console.log(header)
+    // console.log(header)
     Object.entries(header).forEach(([key, value]) => {
         // console.log(col)
         const th = document.createElement("th");
@@ -236,7 +237,7 @@ function compileQueryFromInputs(artist, album) {
     if (artist) query.push(`artist=${encodeForQueryPlus(artist)}`);
     if (album)  query.push(`album=${encodeForQueryPlus(album)}`);
     // if (track) query.push(`track=${encodeURIComponent(track)}`);
-    let endpoint = '/gettracks'
+    let endpoint = '/getartist'
     const baseUrl = 'http://127.0.0.1:8000'
     return `${baseUrl}${endpoint}?${query.join("&")}`;
 }
