@@ -35,6 +35,7 @@ async function fetchCSV(path) {
 //   2. Perform the fetch / async operation
 //   3. Return the raw data (JSON, array, string, etc.) back to the handler
 // =======================================================
+
 async function fetchMusicData(str) {
     // Build the URL using the query string
     const url = str;
@@ -56,9 +57,9 @@ async function fetchMusicData(str) {
     return data // return as JS object/array
 }
 
-// =======================================================
+// ==========================
 // Handler Function
-// =======================================================
+// ==========================
 // Purpose: ORCHESTRATOR for the "Pick Your Music" section
 // Responsibilities:
 //   1. Collect inputs from the DOM
@@ -67,7 +68,8 @@ async function fetchMusicData(str) {
 //   4. Update the UI or cache as needed
 //   5. Handle errors gracefully
 // Note: Does NOT fetch data itself; delegates to worker
-// =======================================================
+// ==========================
+
 async function handleMusicQuery() {
     // 1. Get the section that owns this feature
     const section = document.querySelector("#querysearch");
@@ -99,7 +101,7 @@ async function handleMusicQuery() {
 
         // 7. Optional: show raw JSON in the results div
         // resultsDiv.textContent = JSON.stringify(data, null, 2)
-        // console.log(JSON.stringify(data, null, 2))
+        console.log(JSON.stringify(data, null, 2))
 
         // 8. Populate table or UI  
         generateTable(data);
@@ -113,6 +115,7 @@ async function handleMusicQuery() {
 // =======================
 // Table Function
 // =======================
+
 function generateTable(data){
     // Go through each object in the array and create a row and using field determine which number element in row is made
     // to start assume it always has every column
@@ -172,7 +175,33 @@ function generateTable(data){
             "listen_url": "Link", 
             // "share_url": "https://tidal.com/browse/artist/64518"
         }
-    } else {
+
+    } else if (data[1] === 'getalbums') {
+        filterHeader = {
+          "id": "ID",
+          "name": "Album",
+          "cover": "Album Cover",
+          "video_cover": "Video Cover",
+          // "duration": "Duration",
+          // "available": true,
+          // "ad_supported_ready": true,
+          // "dj_ready": true,
+          // "allow_streaming": true,
+          // "premium_streaming_only": false,
+          "num_tracks": "No. Tracks",
+          // "num_videos": 0,
+          "num_volumes": "No. Volumes",
+          "copyright": "Copyright",
+          "upc": "UPC",
+          "version": "Version",
+          "explicit": "Explicit",
+          "popularity": "Popularity",
+          "type": "Type",
+          "audio_quality": "Audio Quality",
+          "listen_url": "url",
+        }
+    } 
+    else {
         filterHeader = {}
     }
     const newHeaders = filterHeaders(tableHeader, filterHeader)
@@ -201,7 +230,7 @@ function createTableBody(data, newHeaders, tbody){
         // Loop through key/value for debugging or extra logic
         Object.entries(newHeaders).forEach(([key, label]) => {
             const td = document.createElement("td")
-            console.log(`The header is ${key} and the value is ${object[key]}`)
+            // console.log(`The header is ${key} and the value is ${object[key]}`)
             // Create a cell of the value corresponding to the correct field of the current column
             td.textContent = object[key] ?? ""; // pick value by header key
             tr.appendChild(td)
@@ -255,7 +284,7 @@ function compileQueryFromInputs(artist, album) {
     if (artist) query.push(`artist=${encodeForQueryPlus(artist)}`);
     if (album)  query.push(`album=${encodeForQueryPlus(album)}`);
     // if (track) query.push(`track=${encodeURIComponent(track)}`);
-    let endpoint = '/getfavorites'
+    let endpoint = '/getalbums'
     const baseUrl = 'http://127.0.0.1:8000'
     return `${baseUrl}${endpoint}?${query.join("&")}`;
 }
