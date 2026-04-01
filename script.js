@@ -120,13 +120,13 @@ function generateTable(data){
     // Go through each object in the array and create a row and using field determine which number element in row is made
     // to start assume it always has every column
 
-    const table = document.querySelector("#data-table");
+    const table = document.querySelector("#query-table");
     const thead = table.querySelector("thead");
     const tbody = table.querySelector("tbody");
     // Here we are going to call function that gets an array of all the fields and that becomes tableHeader
     const tableHeader = getHeaders(data)
     let filterHeader;
-    if (data[1] === 'getfavorites') {
+    if (data[1] === 'getfavorites' || data[1] === 'gettracks') {
         filterHeader = {
             "id": "ID",
             "title": "Title",
@@ -198,7 +198,7 @@ function generateTable(data){
           "popularity": "Popularity",
           "type": "Type",
           "audio_quality": "Audio Quality",
-          "listen_url": "url",
+          "listen_url": "Url",
         }
     } 
     else {
@@ -216,6 +216,7 @@ function generateTable(data){
     // Build Table
     // console.log(newHeaders)
     const header = createTableHeader(newHeaders);
+    console.log(`The header is ${header}`)
     thead.appendChild(header);
     // console.log(thead.innerText)
     createTableBody(data, newHeaders, tbody)
@@ -269,9 +270,8 @@ function filterHeaders(headers, filter) {
 
 function createTableHeader(header){
     const tr = document.createElement("tr")
-    // console.log(header)
+    console.log(header)
     Object.entries(header).forEach(([key, value]) => {
-        // console.log(col)
         const th = document.createElement("th");
         th.textContent = value;
         tr.appendChild(th);
@@ -283,8 +283,13 @@ function compileQueryFromInputs(artist, album) {
     const query = [];
     if (artist) query.push(`artist=${encodeForQueryPlus(artist)}`);
     if (album)  query.push(`album=${encodeForQueryPlus(album)}`);
-    // if (track) query.push(`track=${encodeURIComponent(track)}`);
-    let endpoint = '/getalbums'
+    if (track) query.push(`track=${encodeURIComponent(track)}`);
+    const toggle = document.getElementById("favorites-toggle")
+    if (toggle.checked) {
+        endpoint = '/getfavorites';
+    } else {
+        endpoint = '/gettracks';
+    }
     const baseUrl = 'http://127.0.0.1:8000'
     return `${baseUrl}${endpoint}?${query.join("&")}`;
 }

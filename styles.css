@@ -22,3 +22,30 @@ td {
 th {
   background-color: #f4f4f4;
 }
+
+.x-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+
+/* style the box */
+.x-toggle input {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid black;
+    margin-right: 8px;
+    vertical-align: middle;
+    position: relative;
+}
+
+/* show X when checked */
+.x-toggle input:checked::after {
+    content: "X";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: bold;
+    font-size: 14px;
+}
