@@ -2,6 +2,55 @@
 const data_path = 'tidal_favorites.csv'
 // makes asynchronous call to csv file
 
+const SECTION_CONFIG = {
+    gettracks: [
+        {
+            type: "TABLE",      // how to render
+            entity: "track",    // which part of item to use
+            title: "Tracks",
+            dedupe: false
+        },
+        {
+            type: "TABLE",
+            entity: "album",
+            title: "Albums",
+            dedupe: true
+        },
+        {
+            type: "TABLE",
+            entity: "artist",
+            title: "Artists",
+            dedupe: true
+        }
+    ]
+};
+
+const SECTION_TEMPLATES = {
+    TRACK_TABLE: {
+        type: "TABLE",
+        entity: "track",
+        dedupe: false
+    },
+    ALBUM_TABLE: {
+        type: "TABLE",
+        entity: "album",
+        dedupe: true
+    },
+    ARTIST_TABLE: {
+        type: "TABLE",
+        entity: "artist",
+        dedupe: true
+    }
+};
+// potentially
+// const SECTION_CONFIG = {
+//     gettracks: [
+//         { ...SECTION_TEMPLATES.TRACK_TABLE, title: "Tracks" },
+//         { ...SECTION_TEMPLATES.ALBUM_TABLE, title: "Albums" },
+//         { ...SECTION_TEMPLATES.ARTIST_TABLE, title: "Artists" }
+//     ]
+// };
+
 async function fetchCSV(path) {
     try {
         console.log("fetch_csv started");
@@ -97,14 +146,38 @@ async function handleMusicQuery() {
     resultsDiv.textContent = "Loading...";
     try {
         // 6. Fetch music data (bytes → JSON handled inside fetchMusicData)
-        const data = await fetchMusicData(queryString);
+        const [payload, id] = await fetchMusicData(queryString);
 
+
+        /// 1. SECTION LAYER
+        const sections = getSections(id);
+        if (!sections.length) {
+            console.warn("No section config for id:", id);
+        }
+
+        /// 2. DATA LAYER
+        const normalized = normalize(payload, id);
+        const dashboard = buildDashboard(sections, normalized);
+        if (!payload || payload.length === 0) {
+            renderEmptyState();
+            return;
+        }
+        /// 3. TABLE LAYER
+        // generateTable
+           // ↓
+        // getHeaders(data)
+           // ↓
+        // render table
+        // render(dashboard);
         // 7. Optional: show raw JSON in the results div
         // resultsDiv.textContent = JSON.stringify(data, null, 2)
-        console.log(JSON.stringify(data, null, 2))
-
+        console.log(JSON.stringify(payload, null, 2))
+        console.log("First Result:")
+        // console.log(payload)
         // 8. Populate table or UI  
-        generateTable(data);
+
+        // Generate Dashboard System - needs to handle parameters 
+        // generateTable(data);
     } catch (err) {
         resultsDiv.textContent = "Error fetching data.";
         // console.log(JSON.stringify(data, null, 2))
@@ -112,6 +185,56 @@ async function handleMusicQuery() {
     }
 }
 
+// =======================
+// Section Function
+// =======================
+
+function getSections(id) {
+
+    // Return predefined section configuration for this route/id
+    // No logic, no transformation, just lookup
+    return SECTION_CONFIG[id] || [];
+}
+
+function buildDashboard(sections, payload){
+
+    // for each section:
+    // 1. extract data
+    // 2. transform data
+    // 3. render section
+    return sections.map(section => {
+        let result = null;
+
+        if (section.type === "TABLE") {
+            // Extract the relevant entity (track / album / artist) from each result item
+            let data = payload.map(item => item[section.entity]);
+            // If enabled, remove duplicate objects based on their unique id
+            // This is important for album/artist views where many tracks share the same parent
+
+            if (section.dedupe) {
+                const map = new Map();
+                // Iterate through all items and overwrite duplicates by id
+                // Map ensures only the last instance of each id is kept
+                data.forEach(item => map.set(item.id, item));
+                // Convert back to array after deduplication
+                data = Array.from(map.values());
+            }
+            // If a limit is specified, truncate the dataset to control UI size/performance
+            if (section.limit) {
+                data = data.slice(0, section.limit);
+            }
+            // Pass fully prepared data into your existing table generator
+            // result = generateTable({
+            //     data: data,
+            //     title: section.title,
+            //     columns: section.columns,
+            //     entity: section.entity
+            // });
+        }
+
+        return result;
+    });
+}
 // =======================
 // Table Function
 // =======================
@@ -124,7 +247,9 @@ function generateTable(data){
     const thead = table.querySelector("thead");
     const tbody = table.querySelector("tbody");
     // Here we are going to call function that gets an array of all the fields and that becomes tableHeader
-    const tableHeader = getHeaders(data)
+    // const tableHeader = getHeaders(data) // only works if you dont do flattening
+    
+    // console.log(tableHeader)
     let filterHeader;
     if (data[1] === 'getfavorites' || data[1] === 'gettracks') {
         filterHeader = {
@@ -216,7 +341,7 @@ function generateTable(data){
     // Build Table
     // console.log(newHeaders)
     const header = createTableHeader(newHeaders);
-    console.log(`The header is ${header}`)
+    // console.log(`The header is ${header}`)
     thead.appendChild(header);
     // console.log(thead.innerText)
     createTableBody(data, newHeaders, tbody)
@@ -239,11 +364,36 @@ function createTableBody(data, newHeaders, tbody){
         tbody.appendChild(tr)
     })
 }
-// for this function it needs to not error out if there isnt any level of nesting in returning object
 
+function buildEntityMap(payload) {
+
+    const map = {};
+
+    payload.forEach(item => {
+
+        for (const key in item) {
+
+            // Initialize array for this entity if it doesn't exist
+            if (!map[key]) {
+                map[key] = [];
+            }
+
+            // Push the entity object (track, album, artist)
+            if (item[key]) {
+                map[key].push(item[key]);
+            }
+        }
+    });
+
+    return map;
+}
+
+
+// for this function it needs to not error out if there isnt any level of nesting in returning object
+// new returning objects have 3 keys that need to be unpacked separately
 function getHeaders(data) {
     fieldsList = []
-    data[0].forEach(obj => {
+    data.forEach(obj => {
         Object.keys(obj).forEach(key => {
             if (!fieldsList.includes(key)) {
                 fieldsList.push(key)
@@ -270,7 +420,7 @@ function filterHeaders(headers, filter) {
 
 function createTableHeader(header){
     const tr = document.createElement("tr")
-    console.log(header)
+    // console.log(header)
     Object.entries(header).forEach(([key, value]) => {
         const th = document.createElement("th");
         th.textContent = value;
@@ -292,6 +442,14 @@ function compileQueryFromInputs(artist, album) {
     }
     const baseUrl = 'http://127.0.0.1:8000'
     return `${baseUrl}${endpoint}?${query.join("&")}`;
+}
+
+function normalize(payload, id) {
+
+    // Future-proof layer:
+    // ensures consistent shape across different routes
+
+    return payload;
 }
 
 // Assume cachedData is defined globally and holds the CSV data
