@@ -42,6 +42,79 @@ const SECTION_TEMPLATES = {
         dedupe: true
     }
 };
+
+const FILTER_TEMPLATES = {
+
+
+    track: {
+        id: "ID",
+        title: "Title",
+        name: "Track",
+        duration: "Length",
+
+        // explicit: "Explicit",
+        // allow_streaming: "Streaming",
+        // available: "Available",
+        // stream_ready: "Stream Ready",
+        // stem_ready: "Stem Ready",
+        // dj_ready: "DJ Ready",
+
+        popularity: "Popularity",
+
+        url: "Link",
+        // listen_url: "Listen",
+        // share_url: "Share",
+
+        version: "Version",
+        copyright: "Copyright",
+
+        bpm: "BPM",
+        key: "Key",
+        key_scale: "Key Quality",
+
+        // isrc: "ISRC",
+        // description: "Description",
+
+        full_name: "Full Track Name"
+    },
+
+    artist: {
+        id: "ID",
+        name: "Artist",
+        picture: "Image",
+        listen_url: "Link",
+
+        // share_url: "Share",
+        // user_date_added: "Added Date"
+    },
+
+    album: {
+        id: "ID",
+        name: "Album",
+        cover: "Album Cover",
+        video_cover: "Video Cover",
+
+        num_tracks: "No. Tracks",
+        num_volumes: "No. Volumes",
+
+        copyright: "Copyright",
+        upc: "UPC",
+        version: "Version",
+
+        explicit: "Explicit",
+        popularity: "Popularity",
+        type: "Type",
+        audio_quality: "Audio Quality",
+
+        listen_url: "Url",
+
+        // duration: "Duration",
+        // available: "Available",
+        // dj_ready: "DJ Ready",
+        // premium_streaming_only: "Premium Only"
+    }
+
+};
 // potentially
 // const SECTION_CONFIG = {
 //     gettracks: [
@@ -145,36 +218,30 @@ async function handleMusicQuery() {
     // 5. Show loading state
     resultsDiv.textContent = "Loading...";
     try {
-        // 6. Fetch music data (bytes → JSON handled inside fetchMusicData)
+        // 0. DATA ACQUISITION (bytes → JSON handled inside fetchMusicData)
         const [payload, id] = await fetchMusicData(queryString);
+        // console.log(payload)
+        /// 1. DATA LAYER
+        const entityMap = buildEntityMap(payload);
 
-
-        /// 1. SECTION LAYER
+        /// 2. SECTION LAYER
         const sections = getSections(id);
+        // console.log(sections)
         if (!sections.length) {
             console.warn("No section config for id:", id);
         }
 
-        /// 2. DATA LAYER
-        const normalized = normalize(payload, id);
-        const dashboard = buildDashboard(sections, normalized);
-        if (!payload || payload.length === 0) {
-            renderEmptyState();
-            return;
-        }
-        /// 3. TABLE LAYER
-        // generateTable
-           // ↓
-        // getHeaders(data)
-           // ↓
-        // render table
-        // render(dashboard);
-        // 7. Optional: show raw JSON in the results div
-        // resultsDiv.textContent = JSON.stringify(data, null, 2)
-        console.log(JSON.stringify(payload, null, 2))
-        console.log("First Result:")
-        // console.log(payload)
-        // 8. Populate table or UI  
+        const dashboard = buildDashboard(sections, entityMap);
+        const container = document.getElementById("dashboard");
+        container.innerHTML = ""; // clear previous results
+
+        dashboard.forEach(section => {
+
+            if (section.type === "TABLE") {
+                generateTable(section); // 🔥 THIS creates each table
+            }
+
+        });
 
         // Generate Dashboard System - needs to handle parameters 
         // generateTable(data);
@@ -195,172 +262,133 @@ function getSections(id) {
     // No logic, no transformation, just lookup
     return SECTION_CONFIG[id] || [];
 }
+// =======================
+// Dashboard Function
+// =======================
 
-function buildDashboard(sections, payload){
-
-    // for each section:
-    // 1. extract data
-    // 2. transform data
-    // 3. render section
+function buildDashboard(sections, entityMap){
+    // For each entity configuration:
+    // 1. Retrieve the dataset for the specified entity (track, album, artist, etc.)
+    // 2. Prepare the data (e.g., deduplicate, limit, or lightly transform if needed)
+    // 3. Return a structured object that represents a renderable section
+    // console.log(sections)
     return sections.map(section => {
-        let result = null;
-
-        if (section.type === "TABLE") {
-            // Extract the relevant entity (track / album / artist) from each result item
-            let data = payload.map(item => item[section.entity]);
-            // If enabled, remove duplicate objects based on their unique id
-            // This is important for album/artist views where many tracks share the same parent
-
-            if (section.dedupe) {
-                const map = new Map();
-                // Iterate through all items and overwrite duplicates by id
-                // Map ensures only the last instance of each id is kept
-                data.forEach(item => map.set(item.id, item));
-                // Convert back to array after deduplication
-                data = Array.from(map.values());
-            }
-            // If a limit is specified, truncate the dataset to control UI size/performance
-            if (section.limit) {
-                data = data.slice(0, section.limit);
-            }
-            // Pass fully prepared data into your existing table generator
-            // result = generateTable({
-            //     data: data,
-            //     title: section.title,
-            //     columns: section.columns,
-            //     entity: section.entity
-            // });
+        console.log(section)
+        // Step 1: Get dataset for this entity
+        let data = entityMap[section.entity] || [];
+        // Step 2: Deduplicate if required (useful for album/artist views)
+        if (section.dedupe) {
+            const map = new Map();
+            data.forEach(item => map.set(item[section.key || "id"], item));
+            data = Array.from(map.values());
         }
 
-        return result;
+        // Step 3: Apply optional limit
+        if (section.limit) {
+            data = data.slice(0, section.limit);
+        }
+
+        // Step 4: Return renderable section object
+        return {
+            type: section.type,     // how it will be rendered (TABLE, etc.)
+            entity: section.entity, // track / album / artist
+            title: section.title,   // display label
+            data: data              // prepared dataset
+        };
     });
 }
 // =======================
 // Table Function
 // =======================
 
-function generateTable(data){
-    // Go through each object in the array and create a row and using field determine which number element in row is made
-    // to start assume it always has every column
+function generateTable(section){
 
-    const table = document.querySelector("#query-table");
-    const thead = table.querySelector("thead");
-    const tbody = table.querySelector("tbody");
-    // Here we are going to call function that gets an array of all the fields and that becomes tableHeader
-    // const tableHeader = getHeaders(data) // only works if you dont do flattening
+    const container = document.getElementById("dashboard");
+
+    // --- Title ---
+    // Each section gets its own title (Tracks, Albums, etc.)
+    const title = document.createElement("h2");
+    title.textContent = section.title;
+    container.appendChild(title);
+
+    // --- Table Setup ---
+    // Create base table structure
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const tbody = document.createElement("tbody");
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
     
-    // console.log(tableHeader)
-    let filterHeader;
-    if (data[1] === 'getfavorites' || data[1] === 'gettracks') {
-        filterHeader = {
-            "id": "ID",
-            "title": "Title",
-            "name": "Track",
-            "duration": "Length",
-            // "explicit": false,
-            // "allow_streaming": true,
-            // "available": true,
-            // "stream_ready": true,
-            // "stem_ready": false,
-            // "dj_ready": true,
-            // "ad_supported_stream_ready": true,
-            // "track_num": 1,
-            // "volume_num": 1,
-            "popularity": "Popularity",
-            // "type": null,
-            // "artist_roles": null,
-            // "pay_to_stream": false,
-            // "premium_streaming_only": false,
-            // "editable": false,
-            // "upload": false,
-            // "spotlighted": false,
-            "url": "Link",
-            // "listen_url": "Listen",
-            // "share_url": "https://tidal.com/browse/track/62272404",
-            // "audio_quality": "LOSSLESS",
-            // "access_type": "PUBLIC",
-            // "index": null,
-            // "item_uuid": null,
-            // "isrc": "CAPA30600165",
-            // "description": null,
-            "version": "Version",
-            "copyright": "Copyright",
-            "bpm": "BPM",
-            "key": "Key",
-            "key_scale": "Key Quality",
-            // "peak": 1,
-            "full_name": "Full Track Name"
-        }
-    } else if (data[1] === 'getartist') {
-        filterHeader = {
-            "id": "ID", 
-            "name": "Artist", 
-            "picture": "Image", 
-            // "user_date_added": null, 
-            "listen_url": "Link", 
-            // "share_url": "https://tidal.com/browse/artist/64518"
-        }
+    const data = section.data;
 
-    } else if (data[1] === 'getalbums') {
-        filterHeader = {
-          "id": "ID",
-          "name": "Album",
-          "cover": "Album Cover",
-          "video_cover": "Video Cover",
-          // "duration": "Duration",
-          // "available": true,
-          // "ad_supported_ready": true,
-          // "dj_ready": true,
-          // "allow_streaming": true,
-          // "premium_streaming_only": false,
-          "num_tracks": "No. Tracks",
-          // "num_videos": 0,
-          "num_volumes": "No. Volumes",
-          "copyright": "Copyright",
-          "upc": "UPC",
-          "version": "Version",
-          "explicit": "Explicit",
-          "popularity": "Popularity",
-          "type": "Type",
-          "audio_quality": "Audio Quality",
-          "listen_url": "Url",
-        }
-    } 
-    else {
-        filterHeader = {}
+    // If no data exists, render empty table and exit early
+    if (!data || data.length === 0) {
+        container.appendChild(table);
+        return;
     }
-    const newHeaders = filterHeaders(tableHeader, filterHeader)
-    // console.log(tableHeader)
-    // console.log(newHeaders)
-    // tableHeader = ["Artist","Track","Album"]
+    // --- Headers ---
+    // Step 1: Get all possible fields from the dataset
+    const headers = getHeaders(data); // ["id", "name", "popularity", ...]
 
-    // ✅ Clear old table content
-    thead.innerHTML = "";
-    tbody.innerHTML = "";
+    // Step 2: Get template for this entity (track, album, artist)
+    // This defines which fields we WANT and how they are labeled
+    const filterHeader = getFilterTemplate(section.entity);
 
-    // Build Table
-    // console.log(newHeaders)
-    const header = createTableHeader(newHeaders);
-    // console.log(`The header is ${header}`)
-    thead.appendChild(header);
-    // console.log(thead.innerText)
-    createTableBody(data, newHeaders, tbody)
+    // Step 3: Intersect data fields with template
+    // Result: only valid, ordered, labeled columns
+    const filteredHeaders = filterHeaders(headers, filterHeader);
+
+       // 🔥 Guard: no valid columns
+    if (Object.keys(filteredHeaders).length === 0) {
+        console.warn("No valid headers for section:", section.entity);
+        return;
+    }
+    // console.log("HEADERS:", headers);
+    // console.log("FILTERED:", filteredHeaders);
+    // Convert header config into <th> elements
+    const headerRow = createTableHeader(filteredHeaders);
+    thead.appendChild(headerRow);
+
+    // Create rows using the same filtered header structure
+    createTableBody(data, filteredHeaders, tbody);
+
+    // Add fully built table to the DOM
+    container.appendChild(table);
 }
 
-function createTableBody(data, newHeaders, tbody){
+function createTableBody(data, headers, tbody){
+    
+    // data: array of objects
+    
+    // headers: { field: "Label", field2: "Label2" }
 
-    data[0].forEach(object => {
+    data.forEach(row => {
         // console.log(object)
-        // Loop through headers to control column order
+        console.log("HEADERS KEYS:", Object.keys(headers));
+        console.log("ROW VALUE TEST:", row["name"]);        // Loop through headers to control column order
         let tr = document.createElement("tr")
         // Loop through key/value for debugging or extra logic
-        Object.entries(newHeaders).forEach(([key, label]) => {
-            const td = document.createElement("td")
-            // console.log(`The header is ${key} and the value is ${object[key]}`)
-            // Create a cell of the value corresponding to the correct field of the current column
-            td.textContent = object[key] ?? ""; // pick value by header key
+        Object.keys(headers).forEach(field => {
+
+
+            const td = document.createElement("td");
+
+            let value = row[field];
+
+            // Handle missing values
+            if (value === undefined || value === null) {
+                value = "";
+            }
+
+            // Handle nested objects (e.g., artist: { name: "Radiohead" })
+            if (typeof value === "object") {
+                value = value.name || JSON.stringify(value);
+            }
+            td.textContent =  value
             tr.appendChild(td)
         });
+
         tbody.appendChild(tr)
     })
 }
@@ -372,7 +400,6 @@ function buildEntityMap(payload) {
     payload.forEach(item => {
 
         for (const key in item) {
-
             // Initialize array for this entity if it doesn't exist
             if (!map[key]) {
                 map[key] = [];
@@ -384,15 +411,13 @@ function buildEntityMap(payload) {
             }
         }
     });
-
     return map;
 }
 
 
 // for this function it needs to not error out if there isnt any level of nesting in returning object
-// new returning objects have 3 keys that need to be unpacked separately
 function getHeaders(data) {
-    fieldsList = []
+    const fieldsList = []
     data.forEach(obj => {
         Object.keys(obj).forEach(key => {
             if (!fieldsList.includes(key)) {
@@ -403,19 +428,24 @@ function getHeaders(data) {
     return fieldsList
 }
 
-function filterHeaders(headers, filter) {
-    // so your going to remove items from headers if they arent in filter
-    screenHeader = {}
-    Object.entries(filter).forEach(([field, name]) => {
-        // console.log(`The field is ${field} and the value is ${name}`)
-        headers.forEach(header => {
-            if (field == header) {
-                screenHeader[field] = name
-            } 
-        })
-    })
-    // console.log(screenHeader)
-    return screenHeader
+function getFilterTemplate(entity) {
+    return FILTER_TEMPLATES[entity] || {};
+}
+
+function filterHeaders(headers, filter = {}) {
+
+    const screenHeader = {};
+
+    Object.entries(filter).forEach(([field, label]) => {
+
+        // Only include fields that actually exist in data
+        if (headers.includes(field)) {
+            screenHeader[field] = label;
+        }
+
+    });
+
+    return screenHeader;
 }
 
 function createTableHeader(header){
@@ -431,6 +461,10 @@ function createTableHeader(header){
 
 function compileQueryFromInputs(artist, album) {
     const query = [];
+
+    const trackInput = document.getElementById("track");
+    const track = trackInput?.value || "";
+
     if (artist) query.push(`artist=${encodeForQueryPlus(artist)}`);
     if (album)  query.push(`album=${encodeForQueryPlus(album)}`);
     if (track) query.push(`track=${encodeURIComponent(track)}`);
@@ -445,13 +479,8 @@ function compileQueryFromInputs(artist, album) {
 }
 
 function normalize(payload, id) {
-
-    // Future-proof layer:
-    // ensures consistent shape across different routes
-
-    return payload;
+    return buildEntityMap(payload);
 }
-
 // Assume cachedData is defined globally and holds the CSV data
 let filterSelections = {};
 

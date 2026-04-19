@@ -8,25 +8,25 @@
 </head>
 <body>
   <h2 style="text-align:center;">My Data Table</h2>
-	<section id="filtersContainer"></section>
-	<section id="querysearch">
-		<label>Artist <input id="artist"></label><br>
-		<label>Album <input id="album"></label><br> 
-		<label>Track <input id="track"></label><br> 
-		<label class="x-toggle">
-		  <input type="checkbox" id="favorites-toggle">	Getfavorites
-		</label>
-		<br>
-		<button id="fetchButton">Search</button>
-	</section>
-	<table id="query-table">
-	  <thead></thead>
-	  <tbody></tbody>
-	 </table>
-	<table id="data-table">
-	  <thead></thead>
-	  <tbody></tbody>
-	</table>
+  <!-- Filters UI -->
+  <section id="filtersContainer"></section>
+  <!-- Query Inputs -->
+  <section id="querysearch">
+    <label>Artist <input id="artist"></label><br>
+    <label>Album <input id="album"></label><br> 
+    <label>Track <input id="track"></label><br> 
+
+    <label class="x-toggle">
+      <input type="checkbox" id="favorites-toggle"> Getfavorites
+    </label>
+
+    <br>
+    <button id="fetchButton">Search</button>
+  </section>
+
+  <!-- 🔥 NEW: Dashboard container -->
+  <section id="dashboard"></section>
+
   <script src="script.js"></script> <!-- will generate a row decide what goes in header and handle the data -->
 </body>
 </html>
