@@ -8,21 +8,46 @@ const SECTION_CONFIG = {
             type: "TABLE",      // how to render
             entity: "track",    // which part of item to use
             title: "Tracks",
-            dedupe: false
+            dedupe: false,
+            // limit: 100
         },
         {
             type: "TABLE",
             entity: "album",
             title: "Albums",
-            dedupe: true
+            dedupe: true,
         },
         {
             type: "TABLE",
             entity: "artist",
             title: "Artists",
-            dedupe: true
+            dedupe: true,
+        }
+    ],
+    getfavorites: [
+        {
+            type: "TABLE",      // how to render
+            entity: "track",    // which part of item to use
+            title: "Tracks",
+            dedupe: false,
+            limit: 25
+        },
+        {
+            type: "TABLE",
+            entity: "album",
+            title: "Albums",
+            dedupe: true,
+            limit: 20
+        },
+        {
+            type: "TABLE",
+            entity: "artist",
+            title: "Artists",
+            dedupe: true,
+            limit: 100
         }
     ]
+
 };
 
 const SECTION_TEMPLATES = {
@@ -223,7 +248,6 @@ async function handleMusicQuery() {
         // console.log(payload)
         /// 1. DATA LAYER
         const entityMap = buildEntityMap(payload);
-
         /// 2. SECTION LAYER
         const sections = getSections(id);
         // console.log(sections)
@@ -273,7 +297,6 @@ function buildDashboard(sections, entityMap){
     // 3. Return a structured object that represents a renderable section
     // console.log(sections)
     return sections.map(section => {
-        console.log(section)
         // Step 1: Get dataset for this entity
         let data = entityMap[section.entity] || [];
         // Step 2: Deduplicate if required (useful for album/artist views)
@@ -304,7 +327,7 @@ function buildDashboard(sections, entityMap){
 function generateTable(section){
 
     const container = document.getElementById("dashboard");
-
+    console.log("Table generated")
     // --- Title ---
     // Each section gets its own title (Tracks, Albums, etc.)
     const title = document.createElement("h2");
@@ -319,9 +342,7 @@ function generateTable(section){
 
     table.appendChild(thead);
     table.appendChild(tbody);
-    
     const data = section.data;
-
     // If no data exists, render empty table and exit early
     if (!data || data.length === 0) {
         container.appendChild(table);
@@ -330,7 +351,7 @@ function generateTable(section){
     // --- Headers ---
     // Step 1: Get all possible fields from the dataset
     const headers = getHeaders(data); // ["id", "name", "popularity", ...]
-
+    // console.log(`Headers acquired: ${headers}`)
     // Step 2: Get template for this entity (track, album, artist)
     // This defines which fields we WANT and how they are labeled
     const filterHeader = getFilterTemplate(section.entity);
@@ -365,8 +386,8 @@ function createTableBody(data, headers, tbody){
 
     data.forEach(row => {
         // console.log(object)
-        console.log("HEADERS KEYS:", Object.keys(headers));
-        console.log("ROW VALUE TEST:", row["name"]);        // Loop through headers to control column order
+        // console.log("HEADERS KEYS:", Object.keys(headers));
+        // console.log("ROW VALUE TEST:", row["name"]);        // Loop through headers to control column order
         let tr = document.createElement("tr")
         // Loop through key/value for debugging or extra logic
         Object.keys(headers).forEach(field => {
@@ -468,9 +489,15 @@ function compileQueryFromInputs(artist, album) {
     if (artist) query.push(`artist=${encodeForQueryPlus(artist)}`);
     if (album)  query.push(`album=${encodeForQueryPlus(album)}`);
     if (track) query.push(`track=${encodeURIComponent(track)}`);
-    const toggle = document.getElementById("favorites-toggle")
-    if (toggle.checked) {
+    const fav_toggle = document.getElementById("favorites-toggle")
+    const top_toggle = document.getElementById("top-toggle")
+
+    if (fav_toggle.checked) {
         endpoint = '/getfavorites';
+        query.push(`top=N`);
+    } else if (top_toggle.checked) {
+        endpoint = '/gettracks'
+        query.push(`top=Y`);
     } else {
         endpoint = '/gettracks';
     }
