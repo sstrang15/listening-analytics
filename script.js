@@ -11,6 +11,22 @@ const data_path = 'tidal_favorites.csv'
 // - No logic, no transformation
 // =======================================================
 
+
+// =======================================================
+// APPLICATION BOOT CONFIG
+// =======================================================
+
+const APP_BOOT_CONFIG = {
+
+    method: "getfavorites",
+
+    query: {
+        artist: "",
+        top: false
+    }
+
+};
+
 const SECTION_CONFIG = {
     gettracks: [
         {
@@ -24,6 +40,12 @@ const SECTION_CONFIG = {
             type: "TABLE",
             entity: "album",
             title: "Albums",
+            dedupe: true,
+        },
+                {
+            type: "TABLE",
+            entity: "eps",
+            title: "EP & Singles",
             dedupe: true,
         },
         {
@@ -85,7 +107,7 @@ const FILTER_TEMPLATES = {
         title: "Title",
         name: "Track",
         duration: "Length",
-
+        track_num: "Track No.",
         // explicit: "Explicit",
         // allow_streaming: "Streaming",
         // available: "Available",
@@ -142,7 +164,7 @@ const FILTER_TEMPLATES = {
 
         listen_url: "Url",
 
-        // duration: "Duration",
+        duration: "Duration",
         // available: "Available",
         // dj_ready: "DJ Ready",
         // premium_streaming_only: "Premium Only"
@@ -158,6 +180,56 @@ const FILTER_TEMPLATES = {
 //     ]
 // };
 
+
+// BOOTSTRAP
+//     ↓
+// build initial query
+//     ↓
+// run pipeline
+//     ↓
+// hydrate initial runtime state
+//     ↓
+// render initial UI
+
+// then later
+
+// user interaction
+//     ↓
+// compileQueryFromInputs()
+//     ↓
+// buildQuery()
+//     ↓
+// runPipeline()
+
+
+// =======================================================
+// QUERY TRANSPORT BUILDER
+// =======================================================
+// Purpose:
+// Convert internal query definitions
+// into API-ready transport strings
+// =======================================================
+
+function buildQuery({
+    method = "gettracks",
+    query = {}
+}) {
+
+    const baseUrl = "http://127.0.0.1:8000";
+
+    const params = [];
+
+    Object.entries(query).forEach(([key, value]) => {
+
+        params.push(
+            `${key}=${encodeURIComponent(value)}`
+        );
+
+    });
+    
+    return `${baseUrl}/${method}?${params.join("&")}`;
+
+}
 // =======================================================
 // DATA FETCH LAYER
 // =======================================================
@@ -170,9 +242,9 @@ async function fetchMusicData(url) {
     const response = await fetch(url);
     const data = await response.json();
 
-    console.log("RESPONSE:", data);
-    console.log("TYPE:", typeof data);
-    console.log("IS ARRAY:", Array.isArray(data));
+    // console.log("RESPONSE:", data);
+    // console.log("TYPE:", typeof data);
+    // console.log("IS ARRAY:", Array.isArray(data));
 
     return data; // already structured
 }
@@ -203,6 +275,7 @@ async function handleMusicQuery() {
 
     // 3. UI feedback (loading)
     let resultsDiv = section.querySelector(".results");
+
     if (!resultsDiv) {
         resultsDiv = document.createElement("pre");
         resultsDiv.className = "results";
@@ -212,9 +285,35 @@ async function handleMusicQuery() {
     resultsDiv.textContent = "Loading...";
 
     try {
-        // 🔥 SINGLE RESPONSIBILITY: trigger pipeline
-        await runPipeline(queryString);
+        // 🔥 SINGLE RESPONSIBILITY        
+        // trigger pipeline
+        const data = await runPipeline(queryString);
 
+        // --------------------------------
+        // DEBUG: COLLECTION DATASET
+        // --------------------------------
+        console.log("COLLECTION DATASET:", data);
+        console.log(data)
+        console.log(
+            "TRACKS:",
+            data.tracks.map(
+                track => track.name
+            )
+        );
+
+        console.log(
+            "ALBUMS:",
+            data.albums.map(
+                album => album.name
+            )
+        );
+
+        console.log(
+            "ARTISTS:",
+            data.artists.map(
+                artist => artist.name
+            )
+        );
         // Optional: clear loading text after success
         resultsDiv.textContent = "";
 
@@ -296,21 +395,19 @@ function buildDashboard(sections, entityMap) {
 }
 
 // =======================================================
-// TABLE COMPONENT
-// =======================================================
-// Purpose:
-// - Render table UI from section data
+// TABLE CREATION
 // =======================================================
 
 function generateTable(section) {
-    const container = document.getElementById("dashboard");
 
     const title = document.createElement("h2");
     title.textContent = section.title;
     container.appendChild(title);
 
     const table = document.createElement("table");
+
     const thead = document.createElement("thead");
+
     const tbody = document.createElement("tbody");
 
     table.appendChild(thead);
@@ -323,52 +420,88 @@ function generateTable(section) {
         return;
     }
 
-    const headers = getHeaders(data);
-    const filterHeader = getFilterTemplate(section.entity);
-    const filteredHeaders = filterHeaders(headers, filterHeader);
+    const headerRow = createHeaderRow(tableModel.columns);
 
-    if (Object.keys(filteredHeaders).length === 0) return;
+    thead.appendChild(headerRow)
 
-    thead.appendChild(createTableHeader(filteredHeaders));
-    createTableBody(data, filteredHeaders, tbody);
+    // Create table body rows
+    tableModel.rows.forEach(row => {
 
-    container.appendChild(table);
+        const tableRow = createTableRow(
+            row,
+            tableModel.columns
+        );
+
+        tbody.appendChild(tableRow);
+
+    });
+
+    // Return fully constructed table DOM node
+    return table;
 }
 
-function createTableBody(data, headers, tbody){
-    
-    // data: array of objects
-    
-    // headers: { field: "Label", field2: "Label2" }
 
-    data.forEach(row => {
-        // console.log(object)
-        // console.log("HEADERS KEYS:", Object.keys(headers));
-        // console.log("ROW VALUE TEST:", row["name"]);        // Loop through headers to control column order
-        let tr = document.createElement("tr")
-        // Loop through key/value for debugging or extra logic
-        Object.keys(headers).forEach(field => {
+// =======================================================
+// HEADER ROW CREATION
+// =======================================================
 
+function createHeaderRow(columns) {
 
-            const td = document.createElement("td");
+    // Create header row
+    const tr = document.createElement("tr");
 
-            let value = row[field];
+    columns.forEach(column => {
 
-            // Handle missing values
-            if (value === undefined || value === null) {
-                value = "";
-            }
+        const th = document.createElement("th");
+        th.textContent = column.label;
+        tr.appendChild(th);
+    });
 
-            // Handle nested objects (e.g., artist: { name: "Radiohead" })
-            if (typeof value === "object") {
-                value = value.name || JSON.stringify(value);
-            }
-            td.textContent =  value
-            tr.appendChild(td)
-        });
+    return tr;
+}
 
-        tbody.appendChild(tr)
-    })
+// =======================================================
+// TABLE ROW CREATION
+// =======================================================
+
+function createTableRow(rowData, columns) {
+
+    // Create table row
+    const tr = document.createElement("tr");
+    columns.forEach(column => {
+
+        const td = createTableCell(
+            rowData,
+            column
+        );
+        tr.appendChild(td);
+    });
+
+    return tr;
+}
+
+// =======================================================
+// TABLE CELL CREATION
+// =======================================================
+
+function createTableCell(rowData, column) {
+
+    // Create table cell
+    const td = document.createElement("td");
+    let value = rowData[column.field];
+
+    // Handle empty values
+    if (value === undefined || value === null) {
+        value = "";
+    }
+
+    // Handle nested objects safely
+    if (typeof value === "object") {
+        value = JSON.stringify(value);
+    }
+
+    td.textContent = value;
+    return td;
 }
 
 function renderDashboard(dashboard) {
@@ -412,7 +545,7 @@ function ingestData(payload) {
 function buildEntityMap(payload) {
     const map = {};
 
-    payload.forEach(item => {
+    payload.tracks.forEach(item => {
         for (const key in item) {
             if (!map[key]) {
                 map[key] = [];
@@ -442,46 +575,26 @@ async function runPipeline(queryString) {
     const id = response.id;
     const data = response.data;
     const buckets = response.buckets;
-    // console.log("DATA:", data);
+    console.log("DATA:", data);
     // console.log("IS ARRAY:", Array.isArray(data));
     // 2. INGEST
-    const entityMap = ingestData({
-        data: data,
-        buckets: buckets
-    });
-    console.log("ENTITY MAP:", entityMap);    
+    // const entityMap = ingestData({
+    //     data: data,
+    //     buckets: buckets
+    // });
+    // console.log("ENTITY MAP:", entityMap);    
 
     // 3. SECTION CONFIG
     const sections = getSections(id); // TODO: dynamic id
 
     // 4. BUILD DASHBOARD
-    const dashboard = buildDashboard(sections, entityMap);
+    // const dashboard = buildDashboard(sections, entityMap);
 
     // 5. RENDER
-    renderDashboard(dashboard);
+    // renderDashboard(dashboard);
+    return data
 }
 
-// =======================================================
-// HELPER FUNCTIONS
-// =======================================================
-// Purpose:
-// - Small reusable utilities
-// - Used across ingestion, rendering, and transformation
-// =======================================================
-
-// for this function it needs to not error out if there isnt any level of nesting in returning object
-function getHeaders(data) {
-    const fieldsList = []
-
-    data.forEach(obj => {
-        Object.keys(obj).forEach(key => {
-            if (!fieldsList.includes(key)) {
-                fieldsList.push(key)
-            }
-        });
-    });
-    return fieldsList
-}
 
 function getFilterTemplate(entity) {
     return FILTER_TEMPLATES[entity] || {};
@@ -734,7 +847,23 @@ function encodeForQueryPlus(str) {
     return encodeURIComponent(str.trim()).replace(/%20/g, "+");
 }
 
+
+async function initApp() {
+
+    const query =
+        buildQuery(APP_BOOT_CONFIG);
+
+    const data =
+        await runPipeline(query);
+
+    // console.log("BOOTSTRAP DATA:", data);
+
+}
+
+
 attachListeners(listeners);
+
+initApp()
 // async function dataTransformation(data, filters) {
 //     console.log("Transforming data...");
 //     attachListeners(listeners)
