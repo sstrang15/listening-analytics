@@ -1,19 +1,22 @@
 // script.js
-const data_path = 'tidal_favorites.csv'
-// makes asynchronous call to csv file
-
 
 // =======================================================
-// CONFIGURATION LAYER
+// LOADED DATASETS
 // =======================================================
 // Purpose:
-// - Define static configuration for dashboard rendering
-// - No logic, no transformation
+// - Persistent runtime dataset cache
+// - Stores accumulated loaded datasets
 // =======================================================
+
+const loadedDatasets = {};
 
 
 // =======================================================
 // APPLICATION BOOT CONFIG
+// =======================================================
+// Purpose:
+// - Define initial application runtime state
+// - Controls startup dataset acquisition
 // =======================================================
 
 const APP_BOOT_CONFIG = {
@@ -27,82 +30,88 @@ const APP_BOOT_CONFIG = {
 
 };
 
+// =======================================================
+// SECTION CONFIGURATION
+// =======================================================
+// Purpose:
+// - Define UI projection structure
+// - Maps dataset types → render sections
+// =======================================================
+
 const SECTION_CONFIG = {
+
     gettracks: [
+
         {
-            type: "TABLE",      // how to render
-            entity: "track",    // which part of item to use
+            type: "TABLE",
+            dataset: "tracks",
             title: "Tracks",
-            dedupe: false,
-            // limit: 100
+            dedupe: false
         },
+
         {
             type: "TABLE",
-            entity: "album",
+            dataset: "albums",
             title: "Albums",
-            dedupe: true,
+            dedupe: true
         },
-                {
+
+        {
             type: "TABLE",
-            entity: "eps",
+            dataset: "eps",
             title: "EP & Singles",
-            dedupe: true,
+            dedupe: true
         },
+
         {
             type: "TABLE",
-            entity: "artist",
+            dataset: "artists",
             title: "Artists",
-            dedupe: true,
+            dedupe: true
         }
+
     ],
+
     getfavorites: [
-        {
-            type: "TABLE",      // how to render
-            entity: "track",    // which part of item to use
-            title: "Tracks",
-            dedupe: false,
-            // limit: 25
-        },
+
         {
             type: "TABLE",
-            entity: "album",
+            dataset: "tracks",
+            title: "Tracks",
+            dedupe: false
+        },
+
+        {
+            type: "TABLE",
+            dataset: "albums",
             title: "Albums",
             dedupe: true,
-            limit: 10
+            limit: 300
         },
+
         {
             type: "TABLE",
-            entity: "artist",
+            dataset: "artists",
             title: "Artists",
-            dedupe: true,
-            // limit: 100
+            dedupe: true
         }
+
     ]
 
 };
 
-const SECTION_TEMPLATES = {
-    TRACK_TABLE: {
-        type: "TABLE",
-        entity: "track",
-        dedupe: false
-    },
-    ALBUM_TABLE: {
-        type: "TABLE",
-        entity: "album",
-        dedupe: true
-    },
-    ARTIST_TABLE: {
-        type: "TABLE",
-        entity: "artist",
-        dedupe: true
-    }
-};
+// =======================================================
+// FILTER TEMPLATES
+// =======================================================
+// Purpose:
+// - Define visible UI fields per entity type
+// - Controls table column rendering
+// =======================================================
 
 const FILTER_TEMPLATES = {
 
 
-    track: {
+    tracks: {
         id: "ID",
         title: "Title",
         name: "Track",
@@ -134,7 +143,7 @@ const FILTER_TEMPLATES = {
         full_name: "Full Track Name"
     },
 
-    artist: {
+    artists: {
         id: "ID",
         name: "Artist",
         picture: "Image",
@@ -144,7 +153,7 @@ const FILTER_TEMPLATES = {
         // user_date_added: "Added Date"
     },
 
-    album: {
+    albums: {
         id: "ID",
         name: "Album",
         cover: "Album Cover",
@@ -171,43 +180,13 @@ const FILTER_TEMPLATES = {
     }
 
 };
-// potentially
-// const SECTION_CONFIG = {
-//     gettracks: [
-//         { ...SECTION_TEMPLATES.TRACK_TABLE, title: "Tracks" },
-//         { ...SECTION_TEMPLATES.ALBUM_TABLE, title: "Albums" },
-//         { ...SECTION_TEMPLATES.ARTIST_TABLE, title: "Artists" }
-//     ]
-// };
-
-
-// BOOTSTRAP
-//     ↓
-// build initial query
-//     ↓
-// run pipeline
-//     ↓
-// hydrate initial runtime state
-//     ↓
-// render initial UI
-
-// then later
-
-// user interaction
-//     ↓
-// compileQueryFromInputs()
-//     ↓
-// buildQuery()
-//     ↓
-// runPipeline()
-
 
 // =======================================================
 // QUERY TRANSPORT BUILDER
 // =======================================================
 // Purpose:
-// Convert internal query definitions
-// into API-ready transport strings
+// - Convert internal query definitions
+//   into API-ready transport strings
 // =======================================================
 
 function buildQuery({
@@ -226,27 +205,488 @@ function buildQuery({
         );
 
     });
-    
+
     return `${baseUrl}/${method}?${params.join("&")}`;
 
 }
+
 // =======================================================
 // DATA FETCH LAYER
 // =======================================================
 // Purpose:
-// - Perform API request
-// - Return raw JSON payload
+// - Perform API requests
+// - Return raw backend payload
 // =======================================================
 
 async function fetchMusicData(url) {
+
     const response = await fetch(url);
+
     const data = await response.json();
 
-    // console.log("RESPONSE:", data);
-    // console.log("TYPE:", typeof data);
-    // console.log("IS ARRAY:", Array.isArray(data));
+    return data;
 
-    return data; // already structured
+}
+
+// =======================================================
+// INGESTION LAYER
+// =======================================================
+// Purpose:
+// - Extract backend payload
+// - Preserve relational structure
+// =======================================================
+
+function ingestData(response) {
+
+    return response.data;
+
+}
+
+// =======================================================
+// NORMALIZATION LAYER
+// =======================================================
+// Purpose:
+// - Standardize runtime structure
+// - Preserve entity relationships
+// - Ensure predictable application shape
+// =======================================================
+
+function normalizeData(data) {
+
+    // TODO:
+    // standardize structures
+    // ensure arrays exist
+    // clean malformed values
+    // preserve relational nesting
+
+    return data;
+
+}
+
+
+// =======================================================
+// RUNTIME DATA ESTABLISHMENT
+// =======================================================
+// Purpose:
+// - Acquire canonical application data
+// - Normalize backend payload
+// - Store loaded datasets
+// =======================================================
+
+async function establishRuntimeData(queryString) {
+
+    // fetch
+    const response = await fetchMusicData(queryString);
+
+
+    // ingest
+    const ingestedData = ingestData(response);
+
+    // normalize
+    const loadedData = normalizeData(ingestedData);
+    console.log("Established data runtime successfully.")
+    console.log(loadedData)
+
+
+    // runtime merge
+    loadedDatasets[response.id] = loadedData;
+
+    console.log(
+        "LOADED DATASETS UPDATED:",
+        loadedDatasets
+    );
+
+    return {
+        id: response.id,
+        data: loadedData
+    };
+
+}
+
+// =======================================================
+// SECTION RESOLUTION
+// =======================================================
+// Purpose:
+// - Resolve render sections
+// - Map dataset id → UI structure
+// =======================================================
+
+function getSections(id) {
+
+    return SECTION_CONFIG[id] || [];
+
+}
+
+// =======================================================
+// DASHBOARD COMPOSITION
+// =======================================================
+// Purpose:
+// - Convert loaded datasets into
+//   renderable UI sections
+// =======================================================
+
+function buildDashboard(sections, loadedData) {
+
+    return sections.map(section => {
+
+        let data =
+            loadedData[section.dataset] || [];
+
+        if (section.dedupe) {
+
+            const map = new Map();
+
+            data.forEach(item => {
+                map.set(item.id, item);
+            });
+
+            data = Array.from(map.values());
+
+        }
+
+        if (section.limit) {
+            data = data.slice(0, section.limit);
+        }
+
+        return {
+
+            type: section.type,
+            dataset: section.dataset,
+            title: section.title,
+            data: data
+
+        };
+
+    });
+
+}
+
+// =======================================================
+// UI CREATION
+// =======================================================
+// Purpose:
+// - Build application UI from loaded datasets
+// - Compose dashboard structures
+// - Trigger rendering lifecycle
+// =======================================================
+
+function createUI(runtimeDataset) {
+
+    const sections =
+        getSections(runtimeDataset.id);
+
+    const dashboard =
+        buildDashboard(
+            sections,
+            runtimeDataset.data
+        );
+
+    renderDashboard(dashboard);
+
+}
+
+
+// =======================================================
+// DASHBOARD RENDERING
+// =======================================================
+// Purpose:
+// - Materialize dashboard structures
+// - Render composed UI into DOM
+// =======================================================
+
+function renderDashboard(dashboard) {
+
+    const container =
+        document.getElementById("dashboard");
+
+    container.innerHTML = "";
+
+    dashboard.forEach(section => {
+
+        if (section.type === "TABLE") {
+
+            const table =
+                generateTable(section);
+
+            container.appendChild(table);
+
+        }
+
+    });
+
+}
+
+// =======================================================
+// TABLE GENERATION
+// =======================================================
+// Purpose:
+// - Generate complete table views
+// - Materialize section datasets
+// =======================================================
+
+function generateTable(section) {
+
+    const wrapper =
+        document.createElement("div");
+
+    const title =
+        document.createElement("h2");
+
+    title.textContent =
+        section.title;
+
+    wrapper.appendChild(title);
+
+    const table =
+        document.createElement("table");
+
+    const thead =
+        document.createElement("thead");
+
+    const tbody =
+        document.createElement("tbody");
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    const data =
+        section.data;
+
+    if (!data || data.length === 0) {
+
+        wrapper.appendChild(table);
+
+        return wrapper;
+
+    }
+
+    const headers =
+        Object.keys(data[0]);
+
+    const filterTemplate =
+        getFilterTemplate(section.dataset);
+
+    const filteredHeaders =
+        filterHeaders(
+            headers,
+            filterTemplate
+        );
+
+    const columns =
+        Object.entries(filteredHeaders).map(
+            ([field, label]) => ({
+                field,
+                label
+            })
+        );
+
+    const headerRow =
+        createHeaderRow(columns);
+
+    thead.appendChild(headerRow);
+
+    data.forEach(row => {
+
+        const tableRow =
+            createTableRow(
+                row,
+                columns
+            );
+
+        tbody.appendChild(tableRow);
+
+    });
+
+    wrapper.appendChild(table);
+
+    return wrapper;
+
+}
+
+// =======================================================
+// HEADER ROW CREATION
+// =======================================================
+
+function createHeaderRow(columns) {
+
+    const tr =
+        document.createElement("tr");
+
+    columns.forEach(column => {
+
+        const th =
+            document.createElement("th");
+
+        th.textContent =
+            column.label;
+
+        tr.appendChild(th);
+
+    });
+
+    return tr;
+
+}
+
+// =======================================================
+// TABLE ROW CREATION
+// =======================================================
+
+function createTableRow(rowData, columns) {
+
+    const tr =
+        document.createElement("tr");
+
+    columns.forEach(column => {
+
+        const td =
+            createTableCell(
+                rowData,
+                column
+            );
+
+        tr.appendChild(td);
+
+    });
+
+    return tr;
+
+}
+
+// =======================================================
+// TABLE CELL CREATION
+// =======================================================
+
+function createTableCell(rowData, column) {
+
+    const td =
+        document.createElement("td");
+
+    let value =
+        rowData[column.field];
+
+    if (
+        value === undefined ||
+        value === null
+    ) {
+        value = "";
+    }
+
+    if (typeof value === "object") {
+        value = JSON.stringify(value);
+    }
+
+    td.textContent = value;
+
+    return td;
+
+}
+
+// =======================================================
+// FILTER TEMPLATE RESOLUTION
+// =======================================================
+
+function getFilterTemplate(entity) {
+
+    return FILTER_TEMPLATES[entity] || {};
+
+}
+
+// =======================================================
+// HEADER FILTERING
+// =======================================================
+// Purpose:
+// - Restrict visible UI columns
+// - Match headers against templates
+// =======================================================
+
+function filterHeaders(headers, filter = {}) {
+
+    const filtered = {};
+
+    Object.entries(filter).forEach(
+        ([field, label]) => {
+
+            if (headers.includes(field)) {
+                filtered[field] = label;
+            }
+
+        }
+    );
+
+    return filtered;
+
+}
+
+// =======================================================
+// PIPELINE ORCHESTRATOR
+// =======================================================
+// Purpose:
+// - Coordinate data acquisition lifecycle
+// - Trigger UI lifecycle
+// =======================================================
+
+async function runPipeline(queryString) {
+
+    const runtimeDataset =
+        await establishRuntimeData(queryString);
+
+    createUI(runtimeDataset);
+
+    return runtimeDataset;
+
+}
+
+
+// =======================================================
+// INPUT QUERY COMPILATION
+// =======================================================
+// Purpose:
+// - Read UI interaction state
+// - Convert DOM inputs into query definitions
+// =======================================================
+
+function compileQueryFromInputs(artist, album) {
+
+    const trackInput = document.getElementById("track");
+
+    const track = trackInput?.value || "";
+
+    const fav_toggle = document.getElementById("favorites-toggle");
+
+    const top_toggle = document.getElementById("top-toggle");
+
+    const queryDefinition = {
+        method: "gettracks",
+        query: {}
+    };
+
+    if (artist) {
+        queryDefinition.query.artist = artist;
+    }
+
+    if (album) {
+        queryDefinition.query.album = album;
+    }
+
+    if (track) {
+        queryDefinition.query.track = track;
+    }
+
+    if (fav_toggle.checked) {
+
+        queryDefinition.method = "getfavorites";
+        queryDefinition.query.top = "N";
+
+    } else if (top_toggle.checked) {
+
+        queryDefinition.method = "gettracks";
+        queryDefinition.query.top = "Y";
+
+    }
+
+    return queryDefinition;
+
 }
 
 // =======================================================
@@ -259,482 +699,80 @@ async function fetchMusicData(url) {
 // =======================================================
 
 async function handleMusicQuery() {
-    // ==========================
-    // ENTRYPOINT: USER → PIPELINE
-    // ==========================
 
-    const section = document.querySelector("#querysearch");
+    const section =
+        document.querySelector("#querysearch");
 
-    // 1. Read Inputs
-    const artist = section.querySelector("#artist")?.value || "";
-    const album  = section.querySelector("#album")?.value  || "";
+    const artist =
+        section.querySelector("#artist")?.value || "";
 
-    // 2. Build query
-    const queryString = compileQueryFromInputs(artist, album);
-    console.log("QUERY:", queryString);
+    const album =
+        section.querySelector("#album")?.value || "";
 
-    // 3. UI feedback (loading)
-    let resultsDiv = section.querySelector(".results");
+    const queryDefinition =
+        compileQueryFromInputs(
+            artist,
+            album
+        );
 
-    if (!resultsDiv) {
-        resultsDiv = document.createElement("pre");
-        resultsDiv.className = "results";
-        section.appendChild(resultsDiv);
-    }
-
-    resultsDiv.textContent = "Loading...";
+    const queryString =
+        buildQuery(queryDefinition);
 
     try {
         // 🔥 SINGLE RESPONSIBILITY        
         // trigger pipeline
-        const data = await runPipeline(queryString);
-
-        // --------------------------------
-        // DEBUG: COLLECTION DATASET
-        // --------------------------------
-        console.log("COLLECTION DATASET:", data);
-        console.log(data)
-        console.log(
-            "TRACKS:",
-            data.tracks.map(
-                track => track.name
-            )
-        );
-
-        console.log(
-            "ALBUMS:",
-            data.albums.map(
-                album => album.name
-            )
-        );
-
-        console.log(
-            "ARTISTS:",
-            data.artists.map(
-                artist => artist.name
-            )
-        );
-        // Optional: clear loading text after success
-        resultsDiv.textContent = "";
+        const runtimeDataset = await runPipeline(queryString);
 
     } catch (err) {
-        resultsDiv.textContent = "Error fetching data.";
-        console.error("Error in handleMusicQuery:", err);
-    }
-}
-
-function compileQueryFromInputs(artist, album) {
-    const query = [];
-
-    const trackInput = document.getElementById("track");
-    const track = trackInput?.value || "";
-
-    if (artist) query.push(`artist=${encodeForQueryPlus(artist)}`);
-    if (album)  query.push(`album=${encodeForQueryPlus(album)}`);
-    if (track) query.push(`track=${encodeURIComponent(track)}`);
-
-    const fav_toggle = document.getElementById("favorites-toggle")
-    const top_toggle = document.getElementById("top-toggle")
-
-    let endpoint = "/gettracks";
-
-    if (fav_toggle.checked) {
-        endpoint = '/getfavorites';
-        query.push(`top=N`);
-    } else if (top_toggle.checked) {
-        endpoint = '/gettracks'
-        query.push(`top=Y`);
-    } else {
-        endpoint = '/gettracks';
-    }
-    const baseUrl = 'http://127.0.0.1:8000'
-    return `${baseUrl}${endpoint}?${query.join("&")}`;
-}
-
-// =======================================================
-// SECTION CONFIG LAYER
-// =======================================================
-// Purpose:
-// - Map endpoint → UI sections
-// =======================================================
-
-function getSections(id) {
-    return SECTION_CONFIG[id] || [];
-}
-
-// =======================================================
-// DASHBOARD BUILD LAYER
-// =======================================================
-// Purpose:
-// - Convert entityMap + config → renderable sections
-// =======================================================
-
-function buildDashboard(sections, entityMap) {
-
-    return sections.map(section => {
-
-        let data = entityMap[section.entity] || [];
-
-        if (section.dedupe) {
-            const map = new Map();
-            data.forEach(item => map.set(item.id, item));
-            data = Array.from(map.values());
-        }
-
-        if (section.limit) {
-            data = data.slice(0, section.limit);
-        }
-
-        return {
-            type: section.type,
-            entity: section.entity,
-            title: section.title,
-            data: data
-        };
-    });
-}
-
-// =======================================================
-// TABLE CREATION
-// =======================================================
-
-function generateTable(section) {
-
-    const title = document.createElement("h2");
-    title.textContent = section.title;
-    container.appendChild(title);
-
-    const table = document.createElement("table");
-
-    const thead = document.createElement("thead");
-
-    const tbody = document.createElement("tbody");
-
-    table.appendChild(thead);
-    table.appendChild(tbody);
-
-    const data = section.data;
-
-    if (!data || data.length === 0) {
-        container.appendChild(table);
-        return;
-    }
-
-    const headerRow = createHeaderRow(tableModel.columns);
-
-    thead.appendChild(headerRow)
-
-    // Create table body rows
-    tableModel.rows.forEach(row => {
-
-        const tableRow = createTableRow(
-            row,
-            tableModel.columns
+        console.error(
+            "Error in handleMusicQuery:",
+            err
         );
-
-        tbody.appendChild(tableRow);
-
-    });
-
-    // Return fully constructed table DOM node
-    return table;
+    }
 }
 
 
-// =======================================================
-// HEADER ROW CREATION
-// =======================================================
-
-function createHeaderRow(columns) {
-
-    // Create header row
-    const tr = document.createElement("tr");
-
-    columns.forEach(column => {
-
-        const th = document.createElement("th");
-        th.textContent = column.label;
-        tr.appendChild(th);
-    });
-
-    return tr;
-}
 
 // =======================================================
-// TABLE ROW CREATION
+// EVENT LISTENERS
 // =======================================================
 
-function createTableRow(rowData, columns) {
+const listeners = [
 
-    // Create table row
-    const tr = document.createElement("tr");
-    columns.forEach(column => {
-
-        const td = createTableCell(
-            rowData,
-            column
-        );
-        tr.appendChild(td);
-    });
-
-    return tr;
-}
-
-// =======================================================
-// TABLE CELL CREATION
-// =======================================================
-
-function createTableCell(rowData, column) {
-
-    // Create table cell
-    const td = document.createElement("td");
-    let value = rowData[column.field];
-
-    // Handle empty values
-    if (value === undefined || value === null) {
-        value = "";
+    {
+        selector: "#fetchButton",
+        event: "click",
+        handler: handleMusicQuery
     }
 
-    // Handle nested objects safely
-    if (typeof value === "object") {
-        value = JSON.stringify(value);
-    }
-
-    td.textContent = value;
-    return td;
-}
-
-function renderDashboard(dashboard) {
-    const container = document.getElementById("dashboard");
-    container.innerHTML = "";
-
-    dashboard.forEach(section => {
-        if (section.type === "TABLE") {
-            generateTable(section);
-        }
-    });
-}
+];
 
 // =======================================================
-// INGESTION LAYER
-// =======================================================
-// Purpose:
-// - Normalize backend payload
-// - Convert into entity map
+// LISTENER ATTACHMENT
 // =======================================================
 
-function ingestData(payload) {
+function attachListeners(list) {
 
-    // Case 1: Buckets already provided
-    if (payload.buckets) {
-        return {
-            track: payload.buckets.tracks || [],
-            album: payload.buckets.albums || [],
-            artist: payload.buckets.artists || []
-        };
-    }
+    list.forEach(
+        ({
+            selector,
+            event,
+            handler
+        }) => {
 
-    // Case 2: Flattened track list
-    if (payload.data) {
-        return buildEntityMap(payload.data);
-    }
+            const el =
+                document.querySelector(selector);
 
-    return {};
-}
-
-function buildEntityMap(payload) {
-    const map = {};
-
-    payload.tracks.forEach(item => {
-        for (const key in item) {
-            if (!map[key]) {
-                map[key] = [];
+            if (el) {
+                el.addEventListener(
+                    event,
+                    handler
+                );
             }
-            if (item[key]) {
-                map[key].push(item[key]);
-            }
+
         }
-    });
+    );
 
-    return map;
-}
-
-// =======================================================
-// PIPELINE ORCHESTRATOR
-// =======================================================
-// Purpose:
-// - Execute full data pipeline from fetch → render
-// - Central control of system
-// =======================================================
-
-async function runPipeline(queryString) {
-
-    // 1. FETCH
-    const response = await fetchMusicData(queryString);
-
-    const id = response.id;
-    const data = response.data;
-    const buckets = response.buckets;
-    console.log("DATA:", data);
-    // console.log("IS ARRAY:", Array.isArray(data));
-    // 2. INGEST
-    // const entityMap = ingestData({
-    //     data: data,
-    //     buckets: buckets
-    // });
-    // console.log("ENTITY MAP:", entityMap);    
-
-    // 3. SECTION CONFIG
-    const sections = getSections(id); // TODO: dynamic id
-
-    // 4. BUILD DASHBOARD
-    // const dashboard = buildDashboard(sections, entityMap);
-
-    // 5. RENDER
-    // renderDashboard(dashboard);
-    return data
-}
-
-
-function getFilterTemplate(entity) {
-    return FILTER_TEMPLATES[entity] || {};
-}
-
-function filterHeaders(headers, filter = {}) {
-
-    const screenHeader = {};
-
-    Object.entries(filter).forEach(([field, label]) => {
-
-        // Only include fields that actually exist in data
-        if (headers.includes(field)) {
-            screenHeader[field] = label;
-        }
-
-    });
-
-    return screenHeader;
-}
-
-function createTableHeader(header){
-    const tr = document.createElement("tr")
-    // console.log(header)
-    Object.entries(header).forEach(([key, value]) => {
-        const th = document.createElement("th");
-        th.textContent = value;
-        tr.appendChild(th);
-    })
-    return tr
-}
-
-
-function normalize(payload, id) {
-    return buildEntityMap(payload);
-}
-// Assume cachedData is defined globally and holds the CSV data
-let filterSelections = {};
-
-// =======================================================
-// TRANSITIONAL (CSV → OBJECT MIGRATION)
-// =======================================================
-// Purpose:
-// - Old filtering system using CSV rows/columns
-// - Will be replaced with object-based filtering
-// =======================================================
-
-async function renderFilters(array, column_no, data, filterSelections={}) {
-    // Dynamic array of options
-    const fruits = ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry']; 
-    const container = document.getElementById('filtersContainer')
-    container.innerHTML = "";
-    // Skip if element not found 
-    if (!container) {
-        console.warn("No container element found for filters");
-        return;
-    }
-
-    for (let i = 0; i < array.length; i++) {
-        const item = array[i];
-        const col = column_no[i];
-        // This labels the menus
-        // Map column numbers to labels
-        const labels = {
-            0: "Track Name",
-            1: "Artist Name",
-            2: "Album",
-            3: "Duration",
-            4: "Popularity",
-            5: "Playlist"
-        };
-        const labelText = labels[col]
-
-        // Initialize filterSelections to contain all values by default
-        filterSelections[col] = [...item];
-
-        // Create label 
-        const label =  document.createElement('label')
-        label.textContent = labelText;
-        label.style.display = 'block';
-
-        // Create dropdown
-        const select = document.createElement('select');
-        select.innerHTML = `<option value="">-- Select --</option>`; // Default empty
-        item.forEach(element => {
-            const option = document.createElement('option');
-            option.textContent = element; // visible text
-            option.value = element
-            select.appendChild(option);
-        });
-
-        // Event listener: keep only the selected values
-        select.addEventListener('change', (event) => {
-            const filterValue = event.target.value;
-            const filterLabel = labelText
-            const arr = filterSelections[col]
-            if (filterValue) {
-                filterSelections[col] = [filterValue]; // keep only the newest filtered values
-            } else {
-                filterSelections[col] = []; // empty means no filter for this column
-            }
-            console.log(`Filter updated for ${labelText}:`, filterSelections[col]);
-        })
-        console.log(`Listener added on ${labelText}`)
-        // Append to container
-        container.appendChild(label);
-        container.appendChild(select);
-    }
-
-    // Submit button
-    const submitBtn = document.createElement("button");
-    submitBtn.textContent = "Apply Filters";
-    submitBtn.addEventListener("click", async () => {
-        console.log("Filters submitted:", filterSelections);
-        await dataTransformation(data, filterSelections);
-    });
-    container.appendChild(submitBtn)
-}
-
-function getDistinct(array) {
-    const filterArray = [] 
-    for (const group of array) {
-        const unique_array = []
-        // loop through array check to see if new value is equal to any value in new array
-        for (const element of group) {
-            let found = false
-            for (const unique_element of unique_array) {
-                if (element === unique_element) {
-                    found = true;
-                    break
-                }
-            } 
-            if (!found) {
-                unique_array.push(element);
-            }
-        }
-        filterArray.push(unique_array)
-    }
-    console.log(`Got distinct values: ${filterArray.length} times.`)
-    return filterArray
 }
 
 // =======================================================
@@ -759,18 +797,6 @@ function filterData(data, filters) {
             return values.includes(item[key]);
         });
     });
-}
-
-function getDistinctValues(data, field) {
-    const set = new Set();
-
-    data.forEach(item => {
-        if (item[field]) {
-            set.add(item[field]);
-        }
-    });
-
-    return Array.from(set);
 }
 
 // async function makeTable(headers, rows) {
@@ -814,92 +840,60 @@ function getDistinctValues(data, field) {
 //   });
 // }
     
-// for every row, check in the column whether the data in that row is equal to any of the values in filter selection
-    // where the key is the column index have a counter for every row
-    // when the value is identified push the row, else dont push the row and move to the next
-
-const listeners = [
-    { selector: "#fetchButton", event: "click", handler: handleMusicQuery },
-    // { selector: "#runQueryBtn", event: "click", handler: handleMusicQuery }
-];
-
-function attachListeners(list) {
-    list.forEach(({ selector, event, handler }) => {
-        const el = document.querySelector(selector);
-        if (el) el.addEventListener(event, handler);
-    });
-}
-
-let cachedData = null;
-async function fetchAndCacheCSV(data) {
-    if (!cachedData) {
-        console.log("Fetching CSV...");
-        cachedData = await fetchCSV(data);
-        console.log("CSV fetched");
-    } else {
-        console.log("Using cached CSV");
-    }
-    return cachedData;
-}
+// =======================================================
+// QUERY ENCODING
+// =======================================================
 
 function encodeForQueryPlus(str) {
+
     if (!str) return "";
-    return encodeURIComponent(str.trim()).replace(/%20/g, "+");
+
+    return encodeURIComponent(
+        str.trim()
+    ).replace(/%20/g, "+");
+
 }
 
+// =======================================================
+// APPLICATION INITIALIZATION
+// =======================================================
+// Purpose:
+// - Establish initial runtime state
+// - Trigger startup pipeline
+// =======================================================
 
 async function initApp() {
 
     const query =
         buildQuery(APP_BOOT_CONFIG);
 
-    const data =
+    const runtimeDataset =
         await runPipeline(query);
 
-    // console.log("BOOTSTRAP DATA:", data);
+    // --------------------------------
+    // DEBUG: BOOT DATASET
+    // --------------------------------
+
+    console.log(
+        "BOOT DATASET:",
+        runtimeDataset
+    );
+
+    console.log(
+        "LOADED DATASETS:",
+        loadedDatasets
+    );
 
 }
 
 
+// =======================================================
+// APPLICATION ENTRYPOINT
+// =======================================================
+
 attachListeners(listeners);
 
-initApp()
-// async function dataTransformation(data, filters) {
-//     console.log("Transforming data...");
-//     attachListeners(listeners)
-//     let { header, rows } = await parseTable(data);
-//     // console.log(header)
-//     let filteredRows = await filterData(rows, filters);
-//     console.log(filteredRows)
-//     await makeTable(header, filteredRows);  
-//     console.log("Data parsed");
-
-//     const column_nos = [1,2,5];
-//     const columns = await parsebyColumn(column_nos, rows);
-//     const unique = await getDistinct(columns);
-//     console.log("Unique values:", unique);
-
-//     renderFilters(unique, column_nos, data);
-//     console.log("Table made");
-// }
-
-// // Main function that kicks off rendering
-// async function main(data) {
-//     try {
-//         await dataTransformation(data);        // Transform and render
-//     } 
-//     catch(err) {
-//         console.log("Error in main:", err)
-//     }
-// }
-
-// // does all fetching fo data to be cached
-// async function bootstrap() {
-//     const data = await fetchAndCacheCSV(data_path);
-//     await main(data);
-// }
-
-// bootstrap();
+initApp();
 
 // =======================
 // TEST ENTRY POINT
@@ -907,20 +901,3 @@ initApp()
 // Purpose:
 // - Simulate frontend behavior using API
 // - Replace CSV system
-
-// INPUT → FETCH → INGEST → BUILD → RENDER
-
-async function testRender() {
-
-    const query = "http://127.0.0.1:8000/gettracks?artist=radiohead";
-
-    await runPipeline(query);
-}
-
-// TEMP TEST
-// testRender();
-
-// function initApp() {
-//     attachListeners();
-//     loadDefaultDashboard(); // optional
-// }
