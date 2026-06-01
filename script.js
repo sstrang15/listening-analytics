@@ -10,6 +10,21 @@
 
 const loadedDatasets = {};
 
+// =======================================================
+// RENDER STATE
+// =======================================================
+// Purpose:
+// - Store active UI state
+// - Store active view objects
+// - Store shared rendering state
+// =======================================================
+
+const renderState = {
+    filters: {
+        artist: ""
+    },
+    views: []
+};
 
 // =======================================================
 // APPLICATION BOOT CONFIG
@@ -22,12 +37,10 @@ const loadedDatasets = {};
 const APP_BOOT_CONFIG = {
 
     method: "getfavorites",
-
     query: {
         artist: "",
         top: false
     }
-
 };
 
 // =======================================================
@@ -41,7 +54,6 @@ const APP_BOOT_CONFIG = {
 const SECTION_CONFIG = {
 
     gettracks: [
-
         {
             type: "TABLE",
             dataset: "tracks",
@@ -69,7 +81,6 @@ const SECTION_CONFIG = {
             title: "Artists",
             dedupe: true
         }
-
     ],
 
     getfavorites: [
@@ -95,9 +106,7 @@ const SECTION_CONFIG = {
             title: "Artists",
             dedupe: true
         }
-
     ]
-
 };
 
 // =======================================================
@@ -123,23 +132,17 @@ const FILTER_TEMPLATES = {
         // stream_ready: "Stream Ready",
         // stem_ready: "Stem Ready",
         // dj_ready: "DJ Ready",
-
         popularity: "Popularity",
-
         url: "Link",
         // listen_url: "Listen",
         // share_url: "Share",
-
         version: "Version",
         copyright: "Copyright",
-
         bpm: "BPM",
         key: "Key",
         key_scale: "Key Quality",
-
         // isrc: "ISRC",
         // description: "Description",
-
         full_name: "Full Track Name"
     },
 
@@ -148,7 +151,6 @@ const FILTER_TEMPLATES = {
         name: "Artist",
         picture: "Image",
         listen_url: "Link",
-
         // share_url: "Share",
         // user_date_added: "Added Date"
     },
@@ -158,21 +160,16 @@ const FILTER_TEMPLATES = {
         name: "Album",
         cover: "Album Cover",
         video_cover: "Video Cover",
-
         num_tracks: "No. Tracks",
         num_volumes: "No. Volumes",
-
         copyright: "Copyright",
         upc: "UPC",
         version: "Version",
-
         explicit: "Explicit",
         popularity: "Popularity",
         type: "Type",
         audio_quality: "Audio Quality",
-
         listen_url: "Url",
-
         duration: "Duration",
         // available: "Available",
         // dj_ready: "DJ Ready",
@@ -189,25 +186,18 @@ const FILTER_TEMPLATES = {
 //   into API-ready transport strings
 // =======================================================
 
-function buildQuery({
-    method = "gettracks",
-    query = {}
-}) {
+function buildQuery({method = "gettracks",query = {}}) {
 
     const baseUrl = "http://127.0.0.1:8000";
-
     const params = [];
 
     Object.entries(query).forEach(([key, value]) => {
-
         params.push(
             `${key}=${encodeURIComponent(value)}`
         );
-
     });
 
     return `${baseUrl}/${method}?${params.join("&")}`;
-
 }
 
 // =======================================================
@@ -221,25 +211,9 @@ function buildQuery({
 async function fetchMusicData(url) {
 
     const response = await fetch(url);
-
     const data = await response.json();
 
     return data;
-
-}
-
-// =======================================================
-// INGESTION LAYER
-// =======================================================
-// Purpose:
-// - Extract backend payload
-// - Preserve relational structure
-// =======================================================
-
-function ingestData(response) {
-
-    return response.data;
-
 }
 
 // =======================================================
@@ -260,9 +234,7 @@ function normalizeData(data) {
     // preserve relational nesting
 
     return data;
-
 }
-
 
 // =======================================================
 // RUNTIME DATA ESTABLISHMENT
@@ -278,29 +250,19 @@ async function establishRuntimeData(queryString) {
     // fetch
     const response = await fetchMusicData(queryString);
 
-
-    // ingest
-    const ingestedData = ingestData(response);
-
     // normalize
-    const loadedData = normalizeData(ingestedData);
-    console.log("Established data runtime successfully.")
-    console.log(loadedData)
-
+    const loadedData = normalizeData(response);
 
     // runtime merge
     loadedDatasets[response.id] = loadedData;
 
-    console.log(
-        "LOADED DATASETS UPDATED:",
-        loadedDatasets
-    );
+    console.log("Established runtime successfully.");
+    console.log(loadedDatasets);
 
     return {
         id: response.id,
         data: loadedData
     };
-
 }
 
 // =======================================================
@@ -314,7 +276,20 @@ async function establishRuntimeData(queryString) {
 function getSections(id) {
 
     return SECTION_CONFIG[id] || [];
+}
 
+// =======================================================
+// PROJECTION LAYER
+// =======================================================
+// Purpose:
+// - Shape runtime datasets into render-ready views
+// - Apply filtering, dedupe, limits, and transformations
+// - Create abstract data projections for UI materialization
+// =======================================================
+
+function buildDataProjection() {
+
+    return dataProjection;
 }
 
 // =======================================================
@@ -329,19 +304,15 @@ function buildDashboard(sections, loadedData) {
 
     return sections.map(section => {
 
-        let data =
-            loadedData[section.dataset] || [];
+        let data = loadedData[section.dataset] || [];
 
         if (section.dedupe) {
 
             const map = new Map();
-
             data.forEach(item => {
                 map.set(item.id, item);
             });
-
             data = Array.from(map.values());
-
         }
 
         if (section.limit) {
@@ -349,16 +320,12 @@ function buildDashboard(sections, loadedData) {
         }
 
         return {
-
             type: section.type,
             dataset: section.dataset,
             title: section.title,
             data: data
-
         };
-
     });
-
 }
 
 // =======================================================
@@ -372,17 +339,9 @@ function buildDashboard(sections, loadedData) {
 
 function createUI(runtimeDataset) {
 
-    const sections =
-        getSections(runtimeDataset.id);
-
-    const dashboard =
-        buildDashboard(
-            sections,
-            runtimeDataset.data
-        );
-
+    const sections = getSections(runtimeDataset.id);
+    const dashboard = buildDashboard(sections,runtimeDataset.data);
     renderDashboard(dashboard);
-
 }
 
 
@@ -396,24 +355,16 @@ function createUI(runtimeDataset) {
 
 function renderDashboard(dashboard) {
 
-    const container =
-        document.getElementById("dashboard");
-
+    const container = document.getElementById("dashboard");
     container.innerHTML = "";
 
     dashboard.forEach(section => {
 
         if (section.type === "TABLE") {
-
-            const table =
-                generateTable(section);
-
+            const table = generateTable(section);
             container.appendChild(table);
-
         }
-
     });
-
 }
 
 // =======================================================
@@ -426,51 +377,28 @@ function renderDashboard(dashboard) {
 
 function generateTable(section) {
 
-    const wrapper =
-        document.createElement("div");
-
-    const title =
-        document.createElement("h2");
-
-    title.textContent =
-        section.title;
-
+    const wrapper = document.createElement("div");
+    const title = document.createElement("h2");
+    
+    title.textContent = section.title;
     wrapper.appendChild(title);
 
-    const table =
-        document.createElement("table");
-
-    const thead =
-        document.createElement("thead");
-
-    const tbody =
-        document.createElement("tbody");
-
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const tbody = document.createElement("tbody");
+    
     table.appendChild(thead);
     table.appendChild(tbody);
-
-    const data =
-        section.data;
+    const data = section.data;
 
     if (!data || data.length === 0) {
-
         wrapper.appendChild(table);
-
         return wrapper;
-
     }
 
-    const headers =
-        Object.keys(data[0]);
-
-    const filterTemplate =
-        getFilterTemplate(section.dataset);
-
-    const filteredHeaders =
-        filterHeaders(
-            headers,
-            filterTemplate
-        );
+    const headers = Object.keys(data[0]);
+    const filterTemplate = getFilterTemplate(section.dataset);
+    const filteredHeaders = filterHeaders(headers,filterTemplate);
 
     const columns =
         Object.entries(filteredHeaders).map(
@@ -480,27 +408,16 @@ function generateTable(section) {
             })
         );
 
-    const headerRow =
-        createHeaderRow(columns);
-
+    const headerRow = createHeaderRow(columns);
     thead.appendChild(headerRow);
 
     data.forEach(row => {
-
-        const tableRow =
-            createTableRow(
-                row,
-                columns
-            );
-
+        const tableRow = createTableRow(row,columns);
         tbody.appendChild(tableRow);
-
     });
 
     wrapper.appendChild(table);
-
     return wrapper;
-
 }
 
 // =======================================================
@@ -509,23 +426,15 @@ function generateTable(section) {
 
 function createHeaderRow(columns) {
 
-    const tr =
-        document.createElement("tr");
+    const tr = document.createElement("tr");
 
     columns.forEach(column => {
 
-        const th =
-            document.createElement("th");
-
-        th.textContent =
-            column.label;
-
+        const th =  document.createElement("th");
+        th.textContent = column.label;
         tr.appendChild(th);
-
     });
-
     return tr;
-
 }
 
 // =======================================================
@@ -534,23 +443,14 @@ function createHeaderRow(columns) {
 
 function createTableRow(rowData, columns) {
 
-    const tr =
-        document.createElement("tr");
+    const tr = document.createElement("tr");
 
     columns.forEach(column => {
 
-        const td =
-            createTableCell(
-                rowData,
-                column
-            );
-
+        const td = createTableCell(rowData,column);
         tr.appendChild(td);
-
     });
-
     return tr;
-
 }
 
 // =======================================================
@@ -559,27 +459,19 @@ function createTableRow(rowData, columns) {
 
 function createTableCell(rowData, column) {
 
-    const td =
-        document.createElement("td");
+    const td = document.createElement("td");
+    let value = rowData[column.field];
 
-    let value =
-        rowData[column.field];
-
-    if (
-        value === undefined ||
-        value === null
-    ) {
+    if (value === undefined || value === null) {
         value = "";
     }
 
     if (typeof value === "object") {
         value = JSON.stringify(value);
     }
-
     td.textContent = value;
 
     return td;
-
 }
 
 // =======================================================
@@ -610,12 +502,9 @@ function filterHeaders(headers, filter = {}) {
             if (headers.includes(field)) {
                 filtered[field] = label;
             }
-
         }
     );
-
     return filtered;
-
 }
 
 // =======================================================
@@ -628,13 +517,10 @@ function filterHeaders(headers, filter = {}) {
 
 async function runPipeline(queryString) {
 
-    const runtimeDataset =
-        await establishRuntimeData(queryString);
-
+    const runtimeDataset = await establishRuntimeData(queryString);
     createUI(runtimeDataset);
 
     return runtimeDataset;
-
 }
 
 
@@ -649,13 +535,9 @@ async function runPipeline(queryString) {
 function compileQueryFromInputs(artist, album) {
 
     const trackInput = document.getElementById("track");
-
     const track = trackInput?.value || "";
-
     const fav_toggle = document.getElementById("favorites-toggle");
-
     const top_toggle = document.getElementById("top-toggle");
-
     const queryDefinition = {
         method: "gettracks",
         query: {}
@@ -700,23 +582,15 @@ function compileQueryFromInputs(artist, album) {
 
 async function handleMusicQuery() {
 
-    const section =
-        document.querySelector("#querysearch");
+    const section = document.querySelector("#querysearch");
 
-    const artist =
-        section.querySelector("#artist")?.value || "";
+    const artist = section.querySelector("#artist")?.value || "";
 
-    const album =
-        section.querySelector("#album")?.value || "";
+    const album = section.querySelector("#album")?.value || "";
 
-    const queryDefinition =
-        compileQueryFromInputs(
-            artist,
-            album
-        );
+    const queryDefinition = compileQueryFromInputs(artist,album);
 
-    const queryString =
-        buildQuery(queryDefinition);
+    const queryString = buildQuery(queryDefinition);
 
     try {
         // 🔥 SINGLE RESPONSIBILITY        
@@ -738,13 +612,11 @@ async function handleMusicQuery() {
 // =======================================================
 
 const listeners = [
-
     {
         selector: "#fetchButton",
         event: "click",
         handler: handleMusicQuery
     }
-
 ];
 
 // =======================================================
@@ -754,25 +626,14 @@ const listeners = [
 function attachListeners(list) {
 
     list.forEach(
-        ({
-            selector,
-            event,
-            handler
-        }) => {
+        ({ selector, event, handler }) => {
 
-            const el =
-                document.querySelector(selector);
-
+            const el = document.querySelector(selector);
             if (el) {
-                el.addEventListener(
-                    event,
-                    handler
-                );
+                el.addEventListener(event, handler);
             }
-
         }
     );
-
 }
 
 // =======================================================
@@ -864,11 +725,8 @@ function encodeForQueryPlus(str) {
 
 async function initApp() {
 
-    const query =
-        buildQuery(APP_BOOT_CONFIG);
-
-    const runtimeDataset =
-        await runPipeline(query);
+    const query = buildQuery(APP_BOOT_CONFIG);
+    const runtimeDataset = await runPipeline(query);
 
     // --------------------------------
     // DEBUG: BOOT DATASET
