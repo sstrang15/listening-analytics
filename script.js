@@ -1,23 +1,16 @@
 // script.js
 
+
 // =======================================================
-// LOADED DATASETS
+// RUNTIME STATE LAYER
 // =======================================================
-// Purpose:
-// - Persistent runtime dataset cache
-// - Stores accumulated loaded datasets
+// Owns:
+// - Persistent loaded datasets
+// - Active view objects
+// - Shared interaction state
 // =======================================================
 
 const loadedDatasets = {};
-
-// =======================================================
-// RENDER STATE
-// =======================================================
-// Purpose:
-// - Store active UI state
-// - Store active view objects
-// - Store shared rendering state
-// =======================================================
 
 const renderState = {
     filters: {
@@ -26,16 +19,16 @@ const renderState = {
     views: []
 };
 
+
 // =======================================================
-// APPLICATION BOOT CONFIG
+// APPLICATION CONFIGURATION LAYER
 // =======================================================
-// Purpose:
-// - Define initial application runtime state
-// - Controls startup dataset acquisition
+// Owns:
+// - Application startup configuration
+// - View field definitions
 // =======================================================
 
 const APP_BOOT_CONFIG = {
-
     method: "getfavorites",
     query: {
         artist: "",
@@ -43,82 +36,7 @@ const APP_BOOT_CONFIG = {
     }
 };
 
-// =======================================================
-// SECTION CONFIGURATION
-// =======================================================
-// Purpose:
-// - Define UI projection structure
-// - Maps dataset types → render sections
-// =======================================================
-
-const SECTION_CONFIG = {
-
-    gettracks: [
-        {
-            type: "TABLE",
-            dataset: "tracks",
-            title: "Tracks",
-            dedupe: false
-        },
-
-        {
-            type: "TABLE",
-            dataset: "albums",
-            title: "Albums",
-            dedupe: true
-        },
-
-        {
-            type: "TABLE",
-            dataset: "eps",
-            title: "EP & Singles",
-            dedupe: true
-        },
-
-        {
-            type: "TABLE",
-            dataset: "artists",
-            title: "Artists",
-            dedupe: true
-        }
-    ],
-
-    getfavorites: [
-
-        {
-            type: "TABLE",
-            dataset: "tracks",
-            title: "Tracks",
-            dedupe: false
-        },
-
-        {
-            type: "TABLE",
-            dataset: "albums",
-            title: "Albums",
-            dedupe: true,
-            limit: 300
-        },
-
-        {
-            type: "TABLE",
-            dataset: "artists",
-            title: "Artists",
-            dedupe: true
-        }
-    ]
-};
-
-// =======================================================
-// FILTER TEMPLATES
-// =======================================================
-// Purpose:
-// - Define visible UI fields per entity type
-// - Controls table column rendering
-// =======================================================
-
 const FILTER_TEMPLATES = {
-
 
     tracks: {
         id: "ID",
@@ -175,38 +93,61 @@ const FILTER_TEMPLATES = {
         // dj_ready: "DJ Ready",
         // premium_streaming_only: "Premium Only"
     }
-
 };
 
+
 // =======================================================
-// QUERY TRANSPORT BUILDER
+// QUERY TRANSPORT LAYER
 // =======================================================
-// Purpose:
-// - Convert internal query definitions
-//   into API-ready transport strings
+// Owns:
+// - API query construction
+// - Query value encoding
 // =======================================================
+
+
+// -------------------------------------------------------
+// Build Query
+// -------------------------------------------------------
 
 function buildQuery({method = "gettracks",query = {}}) {
 
     const baseUrl = "http://127.0.0.1:8000";
     const params = [];
 
-    Object.entries(query).forEach(([key, value]) => {
-        params.push(
-            `${key}=${encodeURIComponent(value)}`
-        );
+    Object.entries(query).forEach(([key,value]) => {
+        params.push(`${key}=${encodeURIComponent(value)}`);
     });
 
     return `${baseUrl}/${method}?${params.join("&")}`;
 }
 
+
+// -------------------------------------------------------
+// Encode Query Value
+// -------------------------------------------------------
+
+function encodeForQueryPlus(str) {
+
+    if (!str) return "";
+
+    return encodeURIComponent(
+        str.trim()
+    ).replace(/%20/g,"+");
+}
+
+
 // =======================================================
-// DATA FETCH LAYER
+// DATA ACQUISITION LAYER
 // =======================================================
-// Purpose:
-// - Perform API requests
-// - Return raw backend payload
+// Owns:
+// - Backend requests
+// - Raw response retrieval
 // =======================================================
+
+
+// -------------------------------------------------------
+// Fetch Music Data
+// -------------------------------------------------------
 
 async function fetchMusicData(url) {
 
@@ -216,14 +157,19 @@ async function fetchMusicData(url) {
     return data;
 }
 
+
 // =======================================================
 // NORMALIZATION LAYER
 // =======================================================
-// Purpose:
-// - Standardize runtime structure
-// - Preserve entity relationships
-// - Ensure predictable application shape
+// Owns:
+// - Canonical runtime data structure
+// - Entity relationship preservation
 // =======================================================
+
+
+// -------------------------------------------------------
+// Normalize Data
+// -------------------------------------------------------
 
 function normalizeData(data) {
 
@@ -236,24 +182,26 @@ function normalizeData(data) {
     return data;
 }
 
+
 // =======================================================
-// RUNTIME DATA ESTABLISHMENT
+// RUNTIME DATA LAYER
 // =======================================================
-// Purpose:
-// - Acquire canonical application data
-// - Normalize backend payload
-// - Store loaded datasets
+// Owns:
+// - Runtime data establishment
+// - Normalization coordination
+// - Loaded dataset storage
 // =======================================================
+
+
+// -------------------------------------------------------
+// Establish Runtime Data
+// -------------------------------------------------------
 
 async function establishRuntimeData(queryString) {
 
-    // fetch
     const response = await fetchMusicData(queryString);
-
-    // normalize
     const loadedData = normalizeData(response);
 
-    // runtime merge
     loadedDatasets[response.id] = loadedData;
 
     console.log("Established runtime successfully.");
@@ -265,279 +213,272 @@ async function establishRuntimeData(queryString) {
     };
 }
 
-// =======================================================
-// SECTION RESOLUTION
-// =======================================================
-// Purpose:
-// - Resolve render sections
-// - Map dataset id → UI structure
-// =======================================================
-
-function getSections(id) {
-
-    return SECTION_CONFIG[id] || [];
-}
 
 // =======================================================
-// PROJECTION LAYER
+// DATA PROJECTION LAYER
 // =======================================================
-// Purpose:
-// - Shape runtime datasets into render-ready views
-// - Apply filtering, dedupe, limits, and transformations
-// - Create abstract data projections for UI materialization
+// Owns:
+// - View-specific data selection
+// - Presentation-specific data shaping
 // =======================================================
 
-function buildDataProjection() {
+
+// -------------------------------------------------------
+// Build Data Projection
+// -------------------------------------------------------
+
+function buildDataProjection(runtimeDataset) {
+
+    const dataProjection = {
+        id: runtimeDataset.id,
+        dataset: "artists",
+        data: runtimeDataset.data.artists || []
+    };
 
     return dataProjection;
 }
 
+
 // =======================================================
-// DASHBOARD COMPOSITION
+// VIEW COMPOSITION LAYER
 // =======================================================
-// Purpose:
-// - Convert loaded datasets into
-//   renderable UI sections
+// Owns:
+// - Complete runtime view composition
+// - View definitions
+// - Runtime view objects
+//
+// Parent:
+// - buildView()
 // =======================================================
 
-function buildDashboard(sections, loadedData) {
 
-    return sections.map(section => {
+// -------------------------------------------------------
+// Build View
+// -------------------------------------------------------
 
-        let data = loadedData[section.dataset] || [];
+function buildView(runtimeDataset) {
 
-        if (section.dedupe) {
+    const projection = buildDataProjection(runtimeDataset);
 
-            const map = new Map();
-            data.forEach(item => {
-                map.set(item.id, item);
-            });
-            data = Array.from(map.values());
-        }
-
-        if (section.limit) {
-            data = data.slice(0, section.limit);
-        }
-
-        return {
-            type: section.type,
-            dataset: section.dataset,
-            title: section.title,
-            data: data
-        };
+    const definition = createViewDefinition({
+        id: "artists-table",
+        type: "TABLE",
+        title: "Artists",
+        sortable: true,
+        filterable: true,
+        refresh: "artistFilter",
+        columns: FILTER_TEMPLATES.artists
     });
-}
 
-// =======================================================
-// UI CREATION
-// =======================================================
-// Purpose:
-// - Build application UI from loaded datasets
-// - Compose dashboard structures
-// - Trigger rendering lifecycle
-// =======================================================
-
-function createUI(runtimeDataset) {
-
-    const sections = getSections(runtimeDataset.id);
-    const dashboard = buildDashboard(sections,runtimeDataset.data);
-    renderDashboard(dashboard);
+    return createViewObject(projection,definition);
 }
 
 
-// =======================================================
-// DASHBOARD RENDERING
-// =======================================================
-// Purpose:
-// - Materialize dashboard structures
-// - Render composed UI into DOM
-// =======================================================
+// -------------------------------------------------------
+// Create View Definition
+// -------------------------------------------------------
 
-function renderDashboard(dashboard) {
+function createViewDefinition(config) {
 
-    const container = document.getElementById("dashboard");
-    container.innerHTML = "";
-
-    dashboard.forEach(section => {
-
-        if (section.type === "TABLE") {
-            const table = generateTable(section);
-            container.appendChild(table);
-        }
-    });
+    return {
+        id: config.id,
+        type: config.type,
+        title: config.title,
+        sortable: config.sortable,
+        filterable: config.filterable,
+        refresh: config.refresh,
+        columns: config.columns
+    };
 }
 
+
+// -------------------------------------------------------
+// Create View Object
+// -------------------------------------------------------
+
+function createViewObject(projection,definition) {
+
+    const viewObject = {
+        id: definition.id,
+        projection: projection,
+        definition: definition,
+        dom: null
+    };
+
+    viewObject.dom = createViewDOM(projection,definition);
+
+    return viewObject;
+}
+
+
 // =======================================================
-// TABLE GENERATION
+// VIEW DOM LAYER
 // =======================================================
-// Purpose:
-// - Generate complete table views
-// - Materialize section datasets
+// Owns:
+// - View DOM creation
+// - View-type routing
+// - Type-specific DOM creation
+//
+// Parent:
+// - createViewDOM()
 // =======================================================
 
-function generateTable(section) {
+
+// -------------------------------------------------------
+// Create View DOM
+// -------------------------------------------------------
+
+function createViewDOM(projection,definition) {
+
+    if (definition.type === "TABLE") {
+        return createTableDOM(projection,definition);
+    }
+
+    return null;
+}
+
+
+// -------------------------------------------------------
+// Create Table DOM
+// -------------------------------------------------------
+
+function createTableDOM(projection,definition) {
 
     const wrapper = document.createElement("div");
     const title = document.createElement("h2");
-    
-    title.textContent = section.title;
-    wrapper.appendChild(title);
-
     const table = document.createElement("table");
-    const thead = document.createElement("thead");
-    const tbody = document.createElement("tbody");
-    
-    table.appendChild(thead);
-    table.appendChild(tbody);
-    const data = section.data;
 
-    if (!data || data.length === 0) {
-        wrapper.appendChild(table);
-        return wrapper;
-    }
+    wrapper.dataset.viewId = definition.id;
+    title.textContent = definition.title;
+    table.dataset.dataset = projection.dataset;
 
-    const headers = Object.keys(data[0]);
-    const filterTemplate = getFilterTemplate(section.dataset);
-    const filteredHeaders = filterHeaders(headers,filterTemplate);
-
-    const columns =
-        Object.entries(filteredHeaders).map(
-            ([field, label]) => ({
-                field,
-                label
-            })
-        );
-
-    const headerRow = createHeaderRow(columns);
-    thead.appendChild(headerRow);
-
-    data.forEach(row => {
-        const tableRow = createTableRow(row,columns);
-        tbody.appendChild(tableRow);
-    });
-
+    wrapper.appendChild(title);
     wrapper.appendChild(table);
+
+    // Rebuild later:
+    // createTableHeader(table,definition.columns);
+    // createTableRows(table,projection.data,definition.columns);
+
     return wrapper;
 }
 
-// =======================================================
-// HEADER ROW CREATION
-// =======================================================
-
-function createHeaderRow(columns) {
-
-    const tr = document.createElement("tr");
-
-    columns.forEach(column => {
-
-        const th =  document.createElement("th");
-        th.textContent = column.label;
-        tr.appendChild(th);
-    });
-    return tr;
-}
 
 // =======================================================
-// TABLE ROW CREATION
+// RENDERING LAYER
+// =======================================================
+// Owns:
+// - Render-state materialization
+// - DOM container replacement
+//
+// Parent:
+// - render()
 // =======================================================
 
-function createTableRow(rowData, columns) {
 
-    const tr = document.createElement("tr");
+// -------------------------------------------------------
+// Render
+// -------------------------------------------------------
 
-    columns.forEach(column => {
+function render() {
 
-        const td = createTableCell(rowData,column);
-        tr.appendChild(td);
-    });
-    return tr;
-}
+    const container = document.getElementById("dashboard");
 
-// =======================================================
-// TABLE CELL CREATION
-// =======================================================
-
-function createTableCell(rowData, column) {
-
-    const td = document.createElement("td");
-    let value = rowData[column.field];
-
-    if (value === undefined || value === null) {
-        value = "";
+    if (!container) {
+        return;
     }
 
-    if (typeof value === "object") {
-        value = JSON.stringify(value);
-    }
-    td.textContent = value;
+    container.innerHTML = "";
 
-    return td;
-}
+    renderState.views.forEach(viewObject => {
 
-// =======================================================
-// FILTER TEMPLATE RESOLUTION
-// =======================================================
-
-function getFilterTemplate(entity) {
-
-    return FILTER_TEMPLATES[entity] || {};
-
-}
-
-// =======================================================
-// HEADER FILTERING
-// =======================================================
-// Purpose:
-// - Restrict visible UI columns
-// - Match headers against templates
-// =======================================================
-
-function filterHeaders(headers, filter = {}) {
-
-    const filtered = {};
-
-    Object.entries(filter).forEach(
-        ([field, label]) => {
-
-            if (headers.includes(field)) {
-                filtered[field] = label;
-            }
+        if (viewObject.dom) {
+            container.appendChild(viewObject.dom);
         }
-    );
-    return filtered;
+    });
 }
 
+
 // =======================================================
-// PIPELINE ORCHESTRATOR
+// APPLICATION PIPELINE LAYER
 // =======================================================
-// Purpose:
-// - Coordinate data acquisition lifecycle
-// - Trigger UI lifecycle
+// Owns:
+// - Complete data-to-view lifecycle
+// - Runtime view registration
+// - Rendering coordination
+//
+// Parent:
+// - runPipeline()
 // =======================================================
+
+
+// -------------------------------------------------------
+// Run Pipeline
+// -------------------------------------------------------
 
 async function runPipeline(queryString) {
 
     const runtimeDataset = await establishRuntimeData(queryString);
-    createUI(runtimeDataset);
+    const viewObject = buildView(runtimeDataset);
+
+    renderState.views = [viewObject];
+
+    render();
 
     return runtimeDataset;
 }
 
 
 // =======================================================
-// INPUT QUERY COMPILATION
+// INPUT HANDLING LAYER
 // =======================================================
-// Purpose:
-// - Read UI interaction state
-// - Convert DOM inputs into query definitions
+// Owns:
+// - Query input collection
+// - Query definition compilation
+// - User-triggered pipeline execution
+//
+// Parent:
+// - handleMusicQuery()
 // =======================================================
 
-function compileQueryFromInputs(artist, album) {
+
+// -------------------------------------------------------
+// Handle Music Query
+// -------------------------------------------------------
+
+async function handleMusicQuery() {
+
+    const queryPanel = document.querySelector("#querysearch");
+
+    if (!queryPanel) {
+        return;
+    }
+
+    const artist = queryPanel.querySelector("#artist")?.value || "";
+    const album = queryPanel.querySelector("#album")?.value || "";
+
+    const queryDefinition = compileQueryFromInputs(artist,album);
+    const queryString = buildQuery(queryDefinition);
+
+    try {
+        await runPipeline(queryString);
+    } catch (err) {
+        console.error("Error in handleMusicQuery:",err);
+    }
+}
+
+
+// -------------------------------------------------------
+// Compile Query From Inputs
+// -------------------------------------------------------
+
+function compileQueryFromInputs(artist,album) {
 
     const trackInput = document.getElementById("track");
+    const favoritesToggle = document.getElementById("favorites-toggle");
+    const topToggle = document.getElementById("top-toggle");
+
     const track = trackInput?.value || "";
-    const fav_toggle = document.getElementById("favorites-toggle");
-    const top_toggle = document.getElementById("top-toggle");
+
     const queryDefinition = {
         method: "gettracks",
         query: {}
@@ -555,60 +496,27 @@ function compileQueryFromInputs(artist, album) {
         queryDefinition.query.track = track;
     }
 
-    if (fav_toggle.checked) {
-
+    if (favoritesToggle?.checked) {
         queryDefinition.method = "getfavorites";
         queryDefinition.query.top = "N";
-
-    } else if (top_toggle.checked) {
-
+    } else if (topToggle?.checked) {
         queryDefinition.method = "gettracks";
         queryDefinition.query.top = "Y";
-
     }
 
     return queryDefinition;
-
-}
-
-// =======================================================
-// INPUT / HANDLER LAYER
-// =======================================================
-// Purpose:
-// - Read user input
-// - Build query
-// - Trigger pipeline
-// =======================================================
-
-async function handleMusicQuery() {
-
-    const section = document.querySelector("#querysearch");
-
-    const artist = section.querySelector("#artist")?.value || "";
-
-    const album = section.querySelector("#album")?.value || "";
-
-    const queryDefinition = compileQueryFromInputs(artist,album);
-
-    const queryString = buildQuery(queryDefinition);
-
-    try {
-        // 🔥 SINGLE RESPONSIBILITY        
-        // trigger pipeline
-        const runtimeDataset = await runPipeline(queryString);
-
-    } catch (err) {
-        console.error(
-            "Error in handleMusicQuery:",
-            err
-        );
-    }
 }
 
 
-
 // =======================================================
-// EVENT LISTENERS
+// EVENT REGISTRATION LAYER
+// =======================================================
+// Owns:
+// - Application event definitions
+// - DOM listener attachment
+//
+// Parent:
+// - attachListeners()
 // =======================================================
 
 const listeners = [
@@ -619,143 +527,55 @@ const listeners = [
     }
 ];
 
-// =======================================================
-// LISTENER ATTACHMENT
-// =======================================================
+
+// -------------------------------------------------------
+// Attach Listeners
+// -------------------------------------------------------
 
 function attachListeners(list) {
 
-    list.forEach(
-        ({ selector, event, handler }) => {
+    list.forEach(({selector,event,handler}) => {
 
-            const el = document.querySelector(selector);
-            if (el) {
-                el.addEventListener(event, handler);
-            }
+        const element = document.querySelector(selector);
+
+        if (element) {
+            element.addEventListener(event,handler);
         }
-    );
-}
-
-// =======================================================
-// TRANSFORMATION LAYER
-// =======================================================
-// Purpose:
-// - Apply filtering, sorting, or transformations
-// - Reusable logic from CSV system (adapted for objects)
-// =======================================================
-
-function filterData(data, filters) {
-    // TODO:
-    // Replace CSV column logic with object-based filtering
-
-    if (!filters || Object.keys(filters).length === 0) {
-        return data;
-    }
-
-    return data.filter(item => {
-        return Object.entries(filters).every(([key, values]) => {
-            if (!values.length) return true;
-            return values.includes(item[key]);
-        });
     });
 }
 
-// async function makeTable(headers, rows) {
-//     // select table
-//     console.log("making table")
-//     const table = document.getElementById('data-table');
-//     const thead = table.querySelector('thead');
-//     const tbody = table.querySelector('tbody');
-//     // Clear old content from table
-//     thead.innerHTML = '';
-//     tbody.innerHTML = '';
-
-//     //create header row
-//     const headerRow = document.createElement('tr');
-//     const hl = headers.length
-//     headers.forEach(header => {
-//     const th =  document.createElement('th');
-//     th.textContent = header;
-//     headerRow.appendChild(th)
-//     }) 
-//     thead.appendChild(headerRow);
-
-//     // Create rows and limit to 100
-//     const tr = document.createElement('tr');
-//     rows.forEach(rowData => {
-//     const tr = document.createElement('tr');
-//     let i = 1
-
-//     rowData.split(',').forEach(cell => {
-//         const td = document.createElement('td');
-//         if (i === 1) {
-//             td.style.fontWeight = 'bold';
-//         } else {
-//             td.style.fontWeight = 'normal'
-//         }
-//         td.textContent = cell;
-//         tr.appendChild(td);
-//         i += 1
-//     });
-//     tbody.appendChild(tr);
-//   });
-// }
-    
-// =======================================================
-// QUERY ENCODING
-// =======================================================
-
-function encodeForQueryPlus(str) {
-
-    if (!str) return "";
-
-    return encodeURIComponent(
-        str.trim()
-    ).replace(/%20/g, "+");
-
-}
 
 // =======================================================
-// APPLICATION INITIALIZATION
+// APPLICATION LIFECYCLE LAYER
 // =======================================================
-// Purpose:
-// - Establish initial runtime state
-// - Trigger startup pipeline
+// Owns:
+// - Startup pipeline execution
+// - Application initialization
+//
+// Parent:
+// - initApp()
 // =======================================================
+
+
+// -------------------------------------------------------
+// Initialize Application
+// -------------------------------------------------------
 
 async function initApp() {
 
-    const query = buildQuery(APP_BOOT_CONFIG);
-    const runtimeDataset = await runPipeline(query);
+    const queryString = buildQuery(APP_BOOT_CONFIG);
 
-    // --------------------------------
-    // DEBUG: BOOT DATASET
-    // --------------------------------
-
-    console.log(
-        "BOOT DATASET:",
-        runtimeDataset
-    );
-
-    console.log(
-        "LOADED DATASETS:",
-        loadedDatasets
-    );
-
+    try {
+        await runPipeline(queryString);
+    } catch (err) {
+        console.error("Error initializing application:",err);
+    }
 }
 
 
 // =======================================================
-// APPLICATION ENTRYPOINT
+// APPLICATION ENTRY POINT
 // =======================================================
 
 attachListeners(listeners);
-
 initApp();
-
-// =======================
-// TEST ENTRY POINT
-// =======================
-// Purpose:
-// - Simulate frontend behavior using API
-// - Replace CSV system
