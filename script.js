@@ -135,6 +135,33 @@ function encodeForQueryPlus(str) {
     ).replace(/%20/g,"+");
 }
 
+// =======================================================
+// REQUEST PROCESSING LAYER
+// =======================================================
+// Owns:
+// - External request-flow coordination
+// - Acquisition-to-response handoff
+//
+// Parent:
+// - processRequest()
+// =======================================================
+
+
+// -------------------------------------------------------
+// Process Request
+//
+// Executes a prepared acquisition request and passes the
+// resulting HTTP response into response handling.
+// -------------------------------------------------------
+
+async function processRequest(acquisitionDefinition) {
+
+    const response = await fetchMusicData(acquisitionDefinition);
+
+    await handleResponse(response);
+}
+
+
 
 // =======================================================
 // DATA ACQUISITION LAYER
@@ -147,14 +174,70 @@ function encodeForQueryPlus(str) {
 
 // -------------------------------------------------------
 // Fetch Music Data
+//
+// Sends a completed request URL to the backend and returns
+// the untouched external response for internal processing.
 // -------------------------------------------------------
 
-async function fetchMusicData(url) {
+async function fetchMusicData(acquisitionDefinition) {
 
-    const response = await fetch(url);
+    const {
+        url,
+        trigger,
+        flow
+    } = acquisitionDefinition;
+
+    // switch (flow) {
+
+    //     case "search":
+    //         return fetch(url);
+
+    //     case "pagination":
+    //         return fetch(url);
+
+    //     case "cached":
+    //         ...
+    // }
+
+    // if (trigger === "application-init") {
+    //     // startup-specific behavior
+    // }
+
+    console.log("Acquisition trigger:",trigger);
+    console.log("Acquisition flow:",flow);
+
+    return fetch(url);
+}
+// =======================================================
+// RESPONSE HANDLING LAYER
+// =======================================================
+// Owns:
+// - HTTP response validation
+// - Response payload parsing
+// - Transport-level error creation
+//
+// Parent:
+// - handleResponse()
+// =======================================================
+
+
+// -------------------------------------------------------
+// Handle Response
+//
+// Turns reponse into a handled json object and handsoff data into pipeline for data processing
+// -------------------------------------------------------
+
+async function handleResponse(response) {
+
+    if (!response.ok) {
+        throw new Error(
+            `Request failed: ${response.status} ${response.statusText}`
+        );
+    }
+
     const data = await response.json();
 
-    return data;
+    runApplicationPipeline(data);
 }
 
 
@@ -195,20 +278,23 @@ function normalizeData(data) {
 
 // -------------------------------------------------------
 // Establish Runtime Data
+//
+// Normalizes an external response, stores the resulting
+// dataset in runtime memory, and returns a reference used
+// by downstream application layers.
 // -------------------------------------------------------
 
-async function establishRuntimeData(queryString) {
+function establishRuntimeData(data) {
 
-    const response = await fetchMusicData(queryString);
-    const loadedData = normalizeData(response);
+    const loadedData = normalizeData(data);
 
-    loadedDatasets[response.id] = loadedData;
+    loadedDatasets[data.id] = loadedData;
 
     console.log("Established runtime successfully.");
     console.log(loadedDatasets);
 
     return {
-        id: response.id,
+        id: data.id,
         data: loadedData
     };
 }
@@ -223,8 +309,12 @@ async function establishRuntimeData(queryString) {
 // =======================================================
 
 
+
 // -------------------------------------------------------
 // Build Data Projection
+//
+// Selects the artist data required by the current view
+// without modifying the underlying runtime dataset.
 // -------------------------------------------------------
 
 function buildDataProjection(runtimeDataset) {
@@ -377,6 +467,9 @@ function createTableDOM(projection,definition) {
 
 // -------------------------------------------------------
 // Render
+//
+// Ingests the current render state and replaces the
+// application container with each active view object's DOM.
 // -------------------------------------------------------
 
 function render() {
@@ -407,7 +500,7 @@ function render() {
 // - Rendering coordination
 //
 // Parent:
-// - runPipeline()
+// - runApplicationPipeline()
 // =======================================================
 
 
@@ -415,16 +508,14 @@ function render() {
 // Run Pipeline
 // -------------------------------------------------------
 
-async function runPipeline(queryString) {
+function runApplicationPipeline(data) {
 
-    const runtimeDataset = await establishRuntimeData(queryString);
+    const runtimeDataset = establishRuntimeData(data);
     const viewObject = buildView(runtimeDataset);
 
     renderState.views = [viewObject];
 
     render();
-
-    return runtimeDataset;
 }
 
 
@@ -443,8 +534,11 @@ async function runPipeline(queryString) {
 
 // -------------------------------------------------------
 // Handle Music Query
+//
+// Collects user inputs, constructs the outbound request,
+// retrieves external data, and passes the received response
+// into the application's internal runtime flow.
 // -------------------------------------------------------
-
 async function handleMusicQuery() {
 
     const queryPanel = document.querySelector("#querysearch");
@@ -457,13 +551,25 @@ async function handleMusicQuery() {
     const album = queryPanel.querySelector("#album")?.value || "";
 
     const queryDefinition = compileQueryFromInputs(artist,album);
+
     const queryString = buildQuery(queryDefinition);
 
+    const acquisitionDefinition = {
+        url: queryString,
+        trigger: "music-query",
+        flow: "search"
+    };
+
     try {
-        await runPipeline(queryString);
+
+        await processRequest(acquisitionDefinition);
+
     } catch (err) {
+
         console.error("Error in handleMusicQuery:",err);
+
     }
+
 }
 
 
@@ -559,16 +665,30 @@ function attachListeners(list) {
 
 // -------------------------------------------------------
 // Initialize Application
+//
+// Constructs the configured startup request, retrieves its
+// external response, and begins the internal runtime flow.
 // -------------------------------------------------------
+
 
 async function initApp() {
 
     const queryString = buildQuery(APP_BOOT_CONFIG);
 
+    const acquisitionDefinition = {
+        url: queryString,
+        trigger: "application-init",
+        flow: "initial-load"
+    };
+
     try {
-        await runPipeline(queryString);
+
+        await processRequest(acquisitionDefinition);
+
     } catch (err) {
+
         console.error("Error initializing application:",err);
+
     }
 }
 
