@@ -29,19 +29,20 @@ const renderState = {
 // =======================================================
 
 const APP_BOOT_CONFIG = {
-    method: "getfavorites",
-    query: {
-        artist: "",
-        top: false
-    }
+    type: "track-search",
+    query: "getfavorites",
+    artist: "",
+    album: "",
+    track: "",
+    favorites: true,
+    top: false
 };
 
 const FILTER_TEMPLATES = {
 
     tracks: {
         id: "ID",
-        title: "Title",
-        name: "Track",
+        name: "Name",
         duration: "Length",
         track_num: "Track No.",
         // explicit: "Explicit",
@@ -56,6 +57,7 @@ const FILTER_TEMPLATES = {
         // share_url: "Share",
         version: "Version",
         copyright: "Copyright",
+        date_added: "Date Added",
         bpm: "BPM",
         key: "Key",
         key_scale: "Key Quality",
@@ -108,19 +110,29 @@ const FILTER_TEMPLATES = {
 // -------------------------------------------------------
 // Build Query
 // -------------------------------------------------------
-
-function buildQuery({method = "gettracks",query = {}}) {
-
+function buildQuery(searchDefinition) {
     const baseUrl = "http://127.0.0.1:8000";
-    const params = [];
+    const queryParts = [];
 
-    Object.entries(query).forEach(([key,value]) => {
-        params.push(`${key}=${encodeURIComponent(value)}`);
-    });
+    for (const [field, value] of Object.entries(searchDefinition)) {
+        if (field === "type" || field === "query") {
+            continue;
+        }
 
-    return `${baseUrl}/${method}?${params.join("&")}`;
+        if (value === "" || value === null || value === undefined) {
+            continue;
+        }
+
+        queryParts.push(`${field}=${encodeURIComponent(value)}`);
+    }
+
+    const queryString = queryParts.join("&");
+    console.log(queryString)
+
+    return queryString
+        ? `${baseUrl}/${searchDefinition.query}?${queryString}`
+        : `${baseUrl}/${searchDefinition.query}`;
 }
-
 
 // -------------------------------------------------------
 // Encode Query Value
@@ -203,8 +215,8 @@ async function fetchMusicData(acquisitionDefinition) {
     //     // startup-specific behavior
     // }
 
-    console.log("Acquisition trigger:",trigger);
-    console.log("Acquisition flow:",flow);
+    // console.log("Acquisition trigger:",trigger);
+    // console.log("Acquisition flow:",flow);
 
     return fetch(url);
 }
@@ -236,7 +248,7 @@ async function handleResponse(response) {
     }
 
     const data = await response.json();
-
+    console.log(data)
     runApplicationPipeline(data);
 }
 
@@ -285,13 +297,13 @@ function normalizeData(data) {
 // -------------------------------------------------------
 
 function establishRuntimeData(data) {
-
+    // console.log(data)
     const loadedData = normalizeData(data);
 
     loadedDatasets[data.id] = loadedData;
 
     console.log("Established runtime successfully.");
-    console.log(loadedDatasets);
+    // console.log(loadedDatasets);
 
     return {
         id: data.id,
@@ -319,11 +331,20 @@ function establishRuntimeData(data) {
 
 function buildDataProjection(runtimeDataset) {
 
+    console.log("runtimeDataset:", runtimeDataset);
+    console.log("Type:", typeof runtimeDataset);
+
     const dataProjection = {
         id: runtimeDataset.id,
-        dataset: "artists",
-        data: runtimeDataset.data.artists || []
+        dataset: "favorites",
+        data: runtimeDataset.data.data.tracks || []
     };
+
+    if (!runtimeDataset.data.data?.tracks?.length) {
+        throw new Error("No tracks found in runtimeDataset.");
+    } else {
+        console.log("Tracks loaded successfully.");
+    }
 
     return dataProjection;
 }
@@ -348,16 +369,39 @@ function buildDataProjection(runtimeDataset) {
 
 function buildView(runtimeDataset) {
 
+    console.group("buildView");
+
+    console.log("runtimeDataset:", runtimeDataset);
+    console.log("Type:", typeof runtimeDataset);
+
     const projection = buildDataProjection(runtimeDataset);
 
+    console.log("projection.data:", projection.data);
+    console.log("Is Array:", Array.isArray(projection.data));
+
+
+    if (!Array.isArray(projection.data)) {
+        throw new Error("Projection data is not an array.");
+    }
+
+    console.log("Length:", projection.data.length);
+
+    if (projection.data.length === 0) {
+        console.groupEnd();
+        throw new Error("Projection data is empty.");
+    }
+
+    console.log("✓ Projection data validated.");
+    console.groupEnd();
+
     const definition = createViewDefinition({
-        id: "artists-table",
+        id: "favorites-tracks-table",
         type: "TABLE",
-        title: "Artists",
+        title: "Favorite Tracks",
         sortable: true,
         filterable: true,
-        refresh: "artistFilter",
-        columns: FILTER_TEMPLATES.artists
+        refresh: "Default",
+        columns: FILTER_TEMPLATES.tracks
     });
 
     return createViewObject(projection,definition);
@@ -396,7 +440,7 @@ function createViewObject(projection,definition) {
     };
 
     viewObject.dom = createViewDOM(projection,definition);
-
+    // console.log(viewObject.dom)
     return viewObject;
 }
 
@@ -440,16 +484,53 @@ function createTableDOM(projection,definition) {
 
     wrapper.dataset.viewId = definition.id;
     title.textContent = definition.title;
-    table.dataset.dataset = projection.dataset;
 
     wrapper.appendChild(title);
     wrapper.appendChild(table);
 
-    // Rebuild later:
-    // createTableHeader(table,definition.columns);
-    // createTableRows(table,projection.data,definition.columns);
+    createTableHeader(table,definition.columns);
+    // console.log(definition.columns)
+    createTableRows(table,projection.data,definition.columns);
 
     return wrapper;
+}
+
+
+function createTableHeader(table, columns) {
+
+    const thead = document.createElement("thead");
+    const row = document.createElement("tr");
+
+    for (const [field, title] of Object.entries(columns)) {
+
+        const header = document.createElement("th");
+        header.textContent = title;
+        row.appendChild(header);
+    }
+
+    thead.appendChild(row);
+    table.appendChild(thead);
+}
+
+// for every row you grab all information about a track entry which is in an array in loadeddata, currently in projection
+// for every time you find the key matches with the key in columns grab the value and put it in the cell
+// also research how to embed a listener into a cell
+
+function createTableRows(table, data, columns) {
+    const tbody = document.createElement("tbody");
+    // console.log(data)
+    for (const record of data) {
+        const row = document.createElement("tr");
+            for (const [field, title] of Object.entries(columns)) {
+            const cell = document.createElement("td");
+            cell.textContent = record[field]
+            row.appendChild(cell);
+        }
+
+        tbody.appendChild(row);
+    }
+
+    table.appendChild(tbody);
 }
 
 
@@ -459,8 +540,7 @@ function createTableDOM(projection,definition) {
 // Owns:
 // - Render-state materialization
 // - DOM container replacement
-//
-// Parent:
+//e
 // - render()
 // =======================================================
 
@@ -509,7 +589,7 @@ function render() {
 // -------------------------------------------------------
 
 function runApplicationPipeline(data) {
-
+    console.log(`Running application-data being ingested`)
     const runtimeDataset = establishRuntimeData(data);
     const viewObject = buildView(runtimeDataset);
 
@@ -550,15 +630,17 @@ async function handleMusicQuery() {
     const artist = queryPanel.querySelector("#artist")?.value || "";
     const album = queryPanel.querySelector("#album")?.value || "";
 
-    const queryDefinition = compileQueryFromInputs(artist,album);
+    const searchDefinition = compileQueryFromInputs(artist,album);
 
-    const queryString = buildQuery(queryDefinition);
+    const queryString = buildQuery(searchDefinition);
+    console.log(queryString)
 
     const acquisitionDefinition = {
         url: queryString,
         trigger: "music-query",
         flow: "search"
     };
+
 
     try {
 
@@ -584,33 +666,22 @@ function compileQueryFromInputs(artist,album) {
     const topToggle = document.getElementById("top-toggle");
 
     const track = trackInput?.value || "";
+    const favorites = favoritesToggle?.checked || false;
+    const top = topToggle?.checked || false;
 
-    const queryDefinition = {
-        method: "gettracks",
-        query: {}
+    const searchDefinition = {
+        type: "track-search",
+        query: favorites
+            ? "getfavorites"
+            : "gettracks",
+        artist,
+        album,
+        track,
+        favorites,
+        top
     };
 
-    if (artist) {
-        queryDefinition.query.artist = artist;
-    }
-
-    if (album) {
-        queryDefinition.query.album = album;
-    }
-
-    if (track) {
-        queryDefinition.query.track = track;
-    }
-
-    if (favoritesToggle?.checked) {
-        queryDefinition.method = "getfavorites";
-        queryDefinition.query.top = "N";
-    } else if (topToggle?.checked) {
-        queryDefinition.method = "gettracks";
-        queryDefinition.query.top = "Y";
-    }
-
-    return queryDefinition;
+    return searchDefinition;
 }
 
 
